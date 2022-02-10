@@ -48,8 +48,6 @@ public class ClientAdapter {
     private WorkerTemplate worker;
     @Autowired
     private BusinessWorkerTemplate businessWorker;
-    @Autowired
-    private ClientAdapter clientAdapter;
 
 
     public void bind(String host, int port, long siteIdStart, int deviceCount, String password) {
@@ -68,7 +66,7 @@ public class ClientAdapter {
                 .option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
                 .handler(new ClientChannelInitializer(
                         worker, headerCode,
-                        businessWorker, businessGroup, clientAdapter, loggerConfig));
+                        businessWorker, businessGroup, this, loggerConfig));
 
         for (int i = 0; i < deviceCount; i++) {
             Long siteId = siteIdStart + i;
