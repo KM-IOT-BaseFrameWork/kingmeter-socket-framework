@@ -70,11 +70,11 @@ public class SocketApplication {
     }
 
     public Map<String, String> waitForMapResult(String key, int waitSeconds) {
-        ExecutorService executor = Executors.newSingleThreadExecutor();
-        SimpleTimeLimiter limiter = SimpleTimeLimiter.create(executor);
+//        ExecutorService executor = Executors.newSingleThreadExecutor();
+//        SimpleTimeLimiter limiter = SimpleTimeLimiter.create(executor);
         ResultFromDevice result = new ResultFromDeviceImpl();
-        ResultFromDevice proxy = limiter.newProxy(result, ResultFromDevice.class, waitSeconds, TimeUnit.SECONDS);
-        return proxy.getResult(key, waitSeconds);
+//        ResultFromDevice proxy = limiter.newProxy(result, ResultFromDevice.class, waitSeconds, TimeUnit.SECONDS);
+        return result.getResult(key, waitSeconds);
     }
 
 

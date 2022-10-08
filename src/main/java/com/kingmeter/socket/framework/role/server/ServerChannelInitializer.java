@@ -9,8 +9,10 @@ import com.kingmeter.socket.framework.config.SocketServerConfig;
 import com.kingmeter.socket.framework.idletrigger.AcceptorIdleStateTrigger;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
+import io.netty.channel.EventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.timeout.IdleStateHandler;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -26,18 +28,18 @@ public class ServerChannelInitializer extends ChannelInitializer<SocketChannel> 
 
     private LoggerConfig loggerConfig;
 
-    private ExecutorService executorService;
+    private EventLoopGroup handlerEventLoopGroup;
 
     public ServerChannelInitializer(WorkerTemplate worker, HeaderCode headerCode,
                                     SocketServerConfig socketServerConfig,
                                     LoggerConfig loggerConfig,
-                                    ExecutorService executorService) {
+                                    EventLoopGroup handlerEventLoopGroup) {
         this.worker = worker;
         this.headerCode = headerCode;
         this.readIdleTimeLimit = socketServerConfig.getReadIdleTimeLimit();
         this.writeIdleTimeLimit = socketServerConfig.getWriteIdleTimeLimit();
         this.allIdleTimeLimit = socketServerConfig.getAllIdleTimeLimit();
-        this.executorService = executorService;
+        this.handlerEventLoopGroup = handlerEventLoopGroup;
         this.loggerConfig = loggerConfig;
     }
 
@@ -50,12 +52,12 @@ public class ServerChannelInitializer extends ChannelInitializer<SocketChannel> 
         pipeline.addLast(new IdleStateHandler(readIdleTimeLimit, writeIdleTimeLimit, allIdleTimeLimit,
                 TimeUnit.SECONDS));
 
-        pipeline.addLast("idleTrigger", new AcceptorIdleStateTrigger());
+        pipeline.addLast("idleTrigger", new AcceptorIdleStateTrigger(worker));
 
         pipeline.addLast("decoder", new Decoder(headerCode, loggerConfig));
 
         pipeline.addLast("encoder", new Encoder(loggerConfig));
 
-        pipeline.addLast("business", new ServerHandler(worker, executorService));
+        pipeline.addLast(this.handlerEventLoopGroup, "business", new ServerHandler(worker));
     }
 }

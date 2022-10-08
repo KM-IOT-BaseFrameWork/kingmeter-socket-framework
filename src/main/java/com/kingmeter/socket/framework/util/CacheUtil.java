@@ -3,34 +3,35 @@ package com.kingmeter.socket.framework.util;
 import com.kingmeter.common.KingMeterException;
 import com.kingmeter.common.KingMeterMarker;
 import com.kingmeter.common.ResponseCode;
+import com.kingmeter.socket.framework.codec.Decoder;
+import com.kingmeter.socket.framework.codec.Encoder;
+import com.kingmeter.socket.framework.idletrigger.AcceptorIdleStateTrigger;
+import com.kingmeter.socket.framework.role.server.ServerHandler;
 import com.kingmeter.utils.StringUtil;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.AttributeKey;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
+import javax.annotation.concurrent.ThreadSafe;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+@ThreadSafe
 @Data
 @Slf4j
 public class CacheUtil {
 
-    private volatile static CacheUtil instance;
+    private static CacheUtil instance = new CacheUtil();
 
     private CacheUtil() {
     }
 
     public static CacheUtil getInstance() {
-        if (instance == null) {
-            synchronized (CacheUtil.class) {
-                if (instance == null) {
-                    instance = new CacheUtil();
-                }
-            }
-        }
         return instance;
     }
 
@@ -73,18 +74,18 @@ public class CacheUtil {
     private volatile ConcurrentMap<String, String> tokenAndDeviceIdMap = new ConcurrentHashMap();
 
 
-    /**
-     * remote unlock result
-     * <p>
-     * key: {lockId}_{userId} ,value : stu
-     */
-    private volatile ConcurrentMap<String, Integer> scanUnlockResultMap = new ConcurrentHashMap();
+//    /**
+//     * remote unlock result
+//     * <p>
+//     * key: {lockId}_{userId} ,value : stu
+//     */
+//    private volatile ConcurrentMap<String, Integer> scanUnlockResultMap = new ConcurrentHashMap();
 
     /**
      * get info from device
      * key {lockId}_{database} ,value : map
      */
-    private volatile ConcurrentMap<String, Map<String, String>> deviceResultMap = new ConcurrentHashMap();
+    private ConcurrentHashMap<String, Map<String, String>> deviceResultMap = new ConcurrentHashMap();
 
     /**
      * key {lockId} , value :map
@@ -125,7 +126,7 @@ public class CacheUtil {
              * we should validate the token ,if the token exist in memory , we should update the channelId for this device
              */
             if (tokenAndDeviceIdMap.containsKey(token)) {
-                dealWithChangeIpOrPort(functionCode,deviceId, token, newChannel);
+                dealWithChangeIpOrPort(functionCode, deviceId, token, newChannel);
                 return deviceId;
             } else {
                 /**
@@ -139,29 +140,38 @@ public class CacheUtil {
         }
     }
 
+    /**
+     * 登录的时候，把原来的内容清理掉，用最新的
+     *
+     * @param deviceId
+     * @param token
+     * @param tokenArray
+     * @param channel
+     */
     public void dealWithLoginSucceed(String deviceId, String token,
                                      byte[] tokenArray, SocketChannel channel) {
-        //1,confirm whether there is already channel in memory
-        String newChannelId = channel.id().asLongText();
-        String oldChannelId = "";
-        if (deviceIdAndChannelMap.containsKey(deviceId)) {
-            //is channel exist ,close it and drop it
-            SocketChannel oldChannel = deviceIdAndChannelMap.get(deviceId);
-            oldChannelId = oldChannel.id().asLongText();
-            if (!newChannelId.equals(oldChannelId)) {
-                log.info(new KingMeterMarker("Socket,Login,1001"),
-                        "{}|{}|{}|{}|{}", deviceId, newChannelId, oldChannelId,
-                        channel.remoteAddress(), oldChannel.remoteAddress());
 
-                oldChannel.pipeline().deregister();
+        String newChannelId = channel.id().asLongText();
+        if (deviceIdAndChannelMap.containsKey(deviceId)) {
+            //原来内存中有该设备之前的信息
+            //很有可能是设备 上次登录使用的端口没有成功，又重新换了一个端口来登录
+            SocketChannel oldChannel = deviceIdAndChannelMap.get(deviceId);
+            if (oldChannel != null) {
+                //把老的记录都给清除掉
+                String oldChannelId = oldChannel.id().asLongText();
+                channelIdAndChannelMap.remove(oldChannelId);
+                channelIdAndDeviceIdMap.remove(oldChannelId);
+                deviceIdAndChannelMap.remove(deviceId);
                 oldChannel.deregister();
-                dealWithOffLine(oldChannel, deviceId, false);
+                oldChannel.close();
             }
+        } else {
+            //最新登录
+
         }
         channelIdAndChannelMap.put(newChannelId, channel);
         channelIdAndDeviceIdMap.put(newChannelId, deviceId);
         deviceIdAndChannelMap.put(deviceId, channel);
-
         String oldToken = deviceIdAndTokenMap.getOrDefault(deviceId, "");
         if (StringUtil.isNotEmpty(oldToken) && !token.equals(oldToken)) tokenAndDeviceIdMap.remove(oldToken);
         deviceIdAndTokenMap.put(deviceId, token);
@@ -176,7 +186,7 @@ public class CacheUtil {
     }
 
 
-    private void dealWithChangeIpOrPort(int functionCode,String deviceId, String token, SocketChannel channel) {
+    private void dealWithChangeIpOrPort(int functionCode, String deviceId, String token, SocketChannel channel) {
         //1,confirm whether there is already channel in memory
         String newChannelId = channel.id().asLongText();
         String oldChannelId = "";
@@ -186,7 +196,7 @@ public class CacheUtil {
             oldChannelId = oldChannel.id().asLongText();
             if (!newChannelId.equals(oldChannelId)) {
                 log.info(new KingMeterMarker("Socket,ReLogin,1004"),
-                        "{}|{}|{}|{}|{}|{}", deviceId,Integer.toHexString(functionCode),
+                        "{}|{}|{}|{}|{}|{}", deviceId, Integer.toHexString(functionCode),
                         newChannelId, oldChannelId,
                         channel.remoteAddress(), oldChannel.remoteAddress());
 
@@ -202,7 +212,7 @@ public class CacheUtil {
         deviceIdAndChannelMap.put(deviceId, channel);
 
         log.info(new KingMeterMarker("Socket,ReLogin,1006"),
-                "{}|{}|{}|{}|{}", deviceId,Integer.toHexString(functionCode),
+                "{}|{}|{}|{}|{}", deviceId, Integer.toHexString(functionCode),
                 newChannelId, oldChannelId, token);
 
         channel.attr(AttributeKey.<Long>valueOf("DeviceId")).set(Long.parseLong(deviceId));

@@ -18,11 +18,9 @@ import java.util.concurrent.ExecutorService;
 public class ServerHandler extends SimpleChannelInboundHandler<ByteBuf> {
 
     private WorkerTemplate worker;
-    private ExecutorService executorService;
 
-    public ServerHandler(WorkerTemplate worker, ExecutorService executorService) {
+    public ServerHandler(WorkerTemplate worker) {
         this.worker = worker;
-        this.executorService = executorService;
     }
 
     /**
@@ -39,27 +37,25 @@ public class ServerHandler extends SimpleChannelInboundHandler<ByteBuf> {
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         super.channelInactive(ctx);
-        executorService.execute(() -> {
-//            log.info(new KingMeterMarker("Socket,ChannelInactive"),
+//        executorService.execute(() -> {
+//
+//        });
+        //            log.info(new KingMeterMarker("Socket,ChannelInactive"),
 //                "{}", ctx.channel().id().asLongText());
-            SocketChannel channel = (SocketChannel) ctx.channel();
-            String deviceId = CacheUtil.getInstance().getChannelIdAndDeviceIdMap().get(channel.id().asLongText());
+        SocketChannel channel = (SocketChannel) ctx.channel();
+        String deviceId = CacheUtil.getInstance().getChannelIdAndDeviceIdMap().get(channel.id().asLongText());
 //            log.info("{}|DeviceOffline|1005|{}", deviceId, channel.id().asLongText());
-            log.info(new KingMeterMarker("Socket,DeviceOffline,1005"),
-                    "{}|{}", deviceId, channel.id().asLongText());
+        log.info(new KingMeterMarker("Socket,DeviceOffline,1005"),
+                "{}|{}", deviceId, channel.id().asLongText());
 
-            worker.dealWithOffline(channel, deviceId);
-        });
+        worker.dealWithOffline(channel, deviceId);
     }
 
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, ByteBuf msg) {
         msg.retain();
-        executorService.execute(() -> {
-                    worker.run(ctx, msg);
-                }
-        );
+        worker.run(ctx, msg);
     }
 
     /**
@@ -67,9 +63,10 @@ public class ServerHandler extends SimpleChannelInboundHandler<ByteBuf> {
      */
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        executorService.submit(() -> {
-            worker.dealWithException(ctx, cause);
-        });
+//        executorService.submit(() -> {
+//            worker.dealWithException(ctx, cause);
+//        });
+        worker.dealWithException(ctx, cause);
     }
 
 }

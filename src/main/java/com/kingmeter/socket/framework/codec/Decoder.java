@@ -8,6 +8,7 @@ import com.kingmeter.socket.framework.config.LoggerConfig;
 import com.kingmeter.utils.ByteUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.PooledByteBufAllocator;
+import io.netty.buffer.UnpooledByteBufAllocator;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
@@ -93,8 +94,9 @@ public class Decoder extends ByteToMessageDecoder {
                     throw new KingMeterException(ResponseCode.EndCodeErrorType);
                 }
 
-                PooledByteBufAllocator allocator = (PooledByteBufAllocator) channel.config().getAllocator();
-                ByteBuf result = allocator.heapBuffer(length + 8);
+//                PooledByteBufAllocator allocator = (PooledByteBufAllocator) channel.config().getAllocator();
+//                ByteBuf result = allocator.heapBuffer(length + 8);
+                ByteBuf result = PooledByteBufAllocator.DEFAULT.directBuffer(length+8);
                 in.readBytes(result, length + 8);
                 out.add(result);
             }

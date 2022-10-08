@@ -23,6 +23,11 @@ import io.netty.util.ReferenceCountUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.io.IOException;
+import java.io.PrintStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+
 /**
  * template strategy
  * used for receiving data from hardware
@@ -73,8 +78,8 @@ public abstract class WorkerTemplate {
 
 //            readHexString(abc,deviceId,functionCode);
 
-            RequestBody requestBody = parseToRequestBody(
-                    deviceId, functionCode,
+            RequestBody requestBody = parseToRequestBody(deviceId,
+                    functionCode,
                     token, tokenArray, resentFlag, dataArray);
 
             //6,do business
@@ -148,8 +153,7 @@ public abstract class WorkerTemplate {
     }
 
 
-    private RequestBody parseToRequestBody(String deviceId,
-                                           int functionCode,
+    private RequestBody parseToRequestBody(String deviceId,int functionCode,
                                            String token,
                                            byte[] tokenArray,
                                            int resentFlag,
@@ -158,6 +162,7 @@ public abstract class WorkerTemplate {
         for (int i = 0; i < dataArray.length; i++) {
             data.append((char) dataArray[i]);
         }
+//        String deviceId = data.toString().split(",", -1)[0];
         return new RequestBody(deviceId, functionCode, token, tokenArray,
                 resentFlag, data.toString());
     }
@@ -180,7 +185,7 @@ public abstract class WorkerTemplate {
 
     private void dealWithBusiness(RequestBody requestBody, ChannelHandlerContext ctx) {
 
-        long deviceId = StringUtil.isEmpty(requestBody.getDeviceId())?0:Long.parseLong(requestBody.getDeviceId());
+        long deviceId = StringUtil.isEmpty(requestBody.getDeviceId()) ? 0 : Long.parseLong(requestBody.getDeviceId());
 
         RequestStrategy requestStrategy = getRequestStrategy(requestBody.getFunctionCode());
 
@@ -246,9 +251,42 @@ public abstract class WorkerTemplate {
                 deviceId = Long.parseLong(CacheUtil.getInstance().getChannelIdAndDeviceIdMap().getOrDefault(channelId, "0"));
             }
         }
+
         log.error(new KingMeterMarker("Socket,DeviceException,4003"),
-                "{}|{}|{}", deviceId, cause.getMessage(),
-                channelId, cause);
+                "{}|{}|{}", deviceId, channelId, getStackTraceInfo(cause));
+    }
+
+    /**
+     * 获取e.printStackTrace() 的具体信息，赋值给String 变量，并返回
+     *
+     * @param e Exception
+     * @return e.printStackTrace() 中 的信息
+     */
+    private static String getStackTraceInfo(Throwable e) {
+        StringWriter sw = null;
+        PrintWriter pw = null;
+        try {
+            sw = new StringWriter();
+            pw = new PrintWriter(sw);
+            e.printStackTrace(pw);//将出错的栈信息输出到printWriter中
+            pw.flush();
+            sw.flush();
+            return sw.toString();
+        } catch (Exception ex) {
+            return "printStackTrace()转换错误";
+        } finally {
+            if (sw != null) {
+                try {
+                    sw.close();
+                } catch (IOException e1) {
+                    e1.printStackTrace();
+                }
+            }
+            if (pw != null) {
+                pw.close();
+            }
+        }
+
     }
 
 
@@ -266,4 +304,11 @@ public abstract class WorkerTemplate {
      * @param deviceId
      */
     public abstract void doDealWithOffline(SocketChannel channel, String deviceId);
+
+    /**
+     * 测试连接是否还能使用
+     *
+     * @return responseBody
+     */
+    public abstract ResponseBody getConnectionTestCommand(String deviceId);
 }

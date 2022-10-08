@@ -5,6 +5,7 @@ import com.kingmeter.common.KingMeterException;
 import com.kingmeter.common.ResponseCode;
 import com.kingmeter.socket.framework.util.CacheUtil;
 
+import java.util.HashMap;
 import java.util.Map;
 
 public class ResultFromDeviceImpl implements ResultFromDevice{
@@ -16,11 +17,16 @@ public class ResultFromDeviceImpl implements ResultFromDevice{
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            if (CacheUtil.getInstance().getDeviceResultMap().containsKey(key)) {
-                Map<String, String> result = CacheUtil.getInstance().getDeviceResultMap().get(key);
+            Map<String, String> result = CacheUtil.getInstance().getDeviceResultMap().getOrDefault(key,null);
+            if (result != null){
                 CacheUtil.getInstance().getDeviceResultMap().remove(key);
                 return result;
             }
+//            if (CacheUtil.getInstance().getDeviceResultMap().containsKey(key)) {
+//                Map<String, String> result = CacheUtil.getInstance().getDeviceResultMap().get(key);
+//                CacheUtil.getInstance().getDeviceResultMap().remove(key);
+//                return result;
+//            }
         }
         CacheUtil.getInstance().getDeviceResultMap().remove(key);
         throw new KingMeterException(ResponseCode.Device_Not_Response);
