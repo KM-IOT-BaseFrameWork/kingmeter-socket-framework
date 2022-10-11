@@ -55,6 +55,7 @@ public class ServerHandler extends SimpleChannelInboundHandler<ByteBuf> {
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, ByteBuf msg) {
         msg.retain();
+        log.info("msg ref_cnt is {}",msg.refCnt());
         worker.run(ctx, msg);
     }
 

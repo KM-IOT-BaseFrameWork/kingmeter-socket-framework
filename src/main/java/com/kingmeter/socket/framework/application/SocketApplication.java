@@ -13,6 +13,8 @@ import io.netty.handler.timeout.IdleStateHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -30,6 +32,7 @@ public class SocketApplication {
 
     /**
      * send tcp message to hardware
+     *
      * @param deviceId
      * @param functionCodeArray
      * @param obj
@@ -42,14 +45,39 @@ public class SocketApplication {
 
         SocketChannel channel = getChannelByDeviceId(String.valueOf(deviceId));
 
-        sendSocketMsg(deviceId,tokenArray,channel,
-                functionCodeArray,obj);
+        sendSocketMsg(deviceId, tokenArray, channel,
+                functionCodeArray, obj);
     }
 
     public void sendSocketMsg(long deviceId,
-                              byte[] tokenArray,SocketChannel channel,
+                              byte[] tokenArray, SocketChannel channel,
                               byte[] functionCodeArray,
                               Object obj) {
+        channel.writeAndFlush(createResponseBody(deviceId, tokenArray, functionCodeArray, obj));
+    }
+
+    public void sendSocketMsg(String deviceId, List<ResponseBody> array) {
+        SocketChannel channel = getChannelByDeviceId(deviceId);
+        log.info("~~~~~~~~~~~~1~~prepare stick package now {}",deviceId);
+        for (ResponseBody body : array) {
+            channel.write(body);
+        }
+        log.info("~~~~~~~~~~~~2~~write stick package now {}",deviceId);
+        channel.flush();
+        log.info("~~~~~~~~~~~~3~~write stick package end {}",deviceId);
+    }
+
+    public ResponseBody createResponseBody(long deviceId,
+                                           byte[] functionCodeArray,
+                                           Object obj) {
+        byte[] tokenArray = getTokenFromCache(String.valueOf(deviceId));
+        return createResponseBody(deviceId, tokenArray, functionCodeArray, obj);
+    }
+
+    public ResponseBody createResponseBody(long deviceId,
+                                           byte[] tokenArray,
+                                           byte[] functionCodeArray,
+                                           Object obj) {
         ResponseBody responseBody = new ResponseBody();
         responseBody.setTokenArray(tokenArray);
         responseBody.setFunctionCodeArray(functionCodeArray);
@@ -61,8 +89,7 @@ public class SocketApplication {
 
         responseBody.setToken_length(headerCode.getTOKEN_LENGTH());
         responseBody.setDeviceId(deviceId);
-
-        channel.writeAndFlush(responseBody);
+        return responseBody;
     }
 
     public Map<String, String> waitForMapResult(String key) {
@@ -95,7 +122,7 @@ public class SocketApplication {
     }
 
 
-    public void setHeartBeatIdleTime(long deviceId,long heartInterval){
+    public void setHeartBeatIdleTime(long deviceId, long heartInterval) {
         SocketChannel channel = getChannelByDeviceId(String.valueOf(deviceId));
         channel.pipeline().remove(IdleStateHandler.class);
         channel.pipeline().addBefore("idleTrigger",
