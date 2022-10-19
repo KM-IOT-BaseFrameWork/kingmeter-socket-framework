@@ -88,7 +88,7 @@ public abstract class WorkerTemplate {
             token = null;
             tokenArray = null;
             dataArray = null;
-            ReferenceCountUtil.release(message);
+//            ReferenceCountUtil.release(message);
         }
     }
 

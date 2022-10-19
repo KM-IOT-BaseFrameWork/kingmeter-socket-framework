@@ -3,35 +3,36 @@ package com.kingmeter.socket.framework.util;
 import com.kingmeter.common.KingMeterException;
 import com.kingmeter.common.KingMeterMarker;
 import com.kingmeter.common.ResponseCode;
-import com.kingmeter.socket.framework.codec.Decoder;
-import com.kingmeter.socket.framework.codec.Encoder;
-import com.kingmeter.socket.framework.idletrigger.AcceptorIdleStateTrigger;
-import com.kingmeter.socket.framework.role.server.ServerHandler;
 import com.kingmeter.utils.StringUtil;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.AttributeKey;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 @ThreadSafe
 @Data
 @Slf4j
 public class CacheUtil {
 
-    private static CacheUtil instance = new CacheUtil();
+    private static CacheUtil instance = null;
+    private static volatile boolean constructed = false;      // <-- 用一个标记变量
 
     private CacheUtil() {
     }
 
     public static CacheUtil getInstance() {
+        if (!constructed) {
+            synchronized (CacheUtil.class) {
+                if (!constructed) {
+                    instance = new CacheUtil();
+                    constructed = true;
+                }
+            }
+        }
         return instance;
     }
 
@@ -40,38 +41,38 @@ public class CacheUtil {
      * key: channel id
      * value : channel
      */
-    private volatile ConcurrentMap<String, SocketChannel> channelIdAndChannelMap = new ConcurrentHashMap();
+    private ConcurrentHashMap<String, SocketChannel> channelIdAndChannelMap = new ConcurrentHashMap();
 
     /**
      * key: channel id
      * value : device id
      */
-    private volatile ConcurrentMap<String, String> channelIdAndDeviceIdMap = new ConcurrentHashMap();
+    private ConcurrentHashMap<String, String> channelIdAndDeviceIdMap = new ConcurrentHashMap();
 
     /**
      * key: device id
      * value : channel
      */
-    private volatile ConcurrentMap<String, SocketChannel> deviceIdAndChannelMap = new ConcurrentHashMap();
+    private ConcurrentHashMap<String, SocketChannel> deviceIdAndChannelMap = new ConcurrentHashMap();
 
     /**
      * key: deviceId
      * value: token
      */
-    private volatile ConcurrentMap<String, String> deviceIdAndTokenMap = new ConcurrentHashMap();
+    private ConcurrentHashMap<String, String> deviceIdAndTokenMap = new ConcurrentHashMap();
 
     /**
      * key: deviceId
      * value: token
      */
-    private volatile ConcurrentMap<String, byte[]> deviceIdAndTokenArrayMap = new ConcurrentHashMap();
+    private ConcurrentHashMap<String, byte[]> deviceIdAndTokenArrayMap = new ConcurrentHashMap();
 
 
     /**
      * key : token
      * value : deviceId
      */
-    private volatile ConcurrentMap<String, String> tokenAndDeviceIdMap = new ConcurrentHashMap();
+    private ConcurrentHashMap<String, String> tokenAndDeviceIdMap = new ConcurrentHashMap();
 
 
 //    /**
@@ -91,7 +92,7 @@ public class CacheUtil {
      * key {lockId} , value :map
      * the information of the device
      */
-    private volatile ConcurrentMap<Long, Map<String, String>> deviceInfoMap = new ConcurrentHashMap();
+    private ConcurrentHashMap<Long, Map<String, String>> deviceInfoMap = new ConcurrentHashMap();
 
 
     public String validateTokenAndGetDeviceIdExceptLogin(
