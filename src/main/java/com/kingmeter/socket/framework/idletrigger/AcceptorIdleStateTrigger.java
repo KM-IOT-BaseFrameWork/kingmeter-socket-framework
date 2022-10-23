@@ -41,12 +41,13 @@ public class AcceptorIdleStateTrigger extends ChannelInboundHandlerAdapter {
     private void dealWithIDLE(SocketChannel channel, String deviceId) {
         if (Long.parseLong(deviceId) > 0) {
             if (channel != null){
-                if(channel.isWritable()){
-                    channel.writeAndFlush(worker.getConnectionTestCommand(deviceId)).
-                            addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
-                }else{
-                    channel.deregister();//todo
-                }
+//                if(channel.isWritable()){
+//                    channel.writeAndFlush(worker.getConnectionTestCommand(deviceId)).
+//                            addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+//                }else{
+//                    channel.deregister();//todo
+//                }
+                channel.close();
             }
         }
     }

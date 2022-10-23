@@ -26,7 +26,7 @@ public class Encoder extends MessageToByteEncoder<ResponseBody> {
     @Override
     protected void encode(ChannelHandlerContext ctx, ResponseBody response, ByteBuf out) throws Exception {
         out.writeBytes(getResponseFinalByteArray(response, ctx));
-        ctx.flush();
+//        ctx.flush();
     }
 
 

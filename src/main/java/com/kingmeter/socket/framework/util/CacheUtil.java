@@ -3,12 +3,14 @@ package com.kingmeter.socket.framework.util;
 import com.kingmeter.common.KingMeterException;
 import com.kingmeter.common.KingMeterMarker;
 import com.kingmeter.common.ResponseCode;
+import com.kingmeter.utils.ByteUtil;
 import com.kingmeter.utils.StringUtil;
 import io.netty.channel.Channel;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.util.AttributeKey;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,23 +21,22 @@ import java.util.concurrent.ConcurrentHashMap;
 public class CacheUtil {
 
     private static CacheUtil instance = null;
-    private static volatile boolean constructed = false;      // <-- 用一个标记变量
+    private static final Object LOCK = new Object();
 
     private CacheUtil() {
     }
 
     public static CacheUtil getInstance() {
-        if (!constructed) {
-            synchronized (CacheUtil.class) {
-                if (!constructed) {
-                    instance = new CacheUtil();
-                    constructed = true;
-                }
+        if (instance != null) {
+            return instance;
+        }
+        synchronized (LOCK) {
+            if (null == instance) {
+                instance = new CacheUtil();
             }
         }
         return instance;
     }
-
 
     /**
      * key: channel id
@@ -110,13 +111,15 @@ public class CacheUtil {
                     return deviceId;
                 } else {
                     log.info(new KingMeterMarker("Socket,ReLogin,1001"),
-                            "{}|{}|{}|{}", deviceId, Integer.toHexString(functionCode), newChannelId, msg);
+                            "{}|{}|{}|{}", deviceId, Integer.toHexString(functionCode), newChannelId,
+                            ByteUtil.bytesToHexString(msg));
                     newChannel.close();
                     throw new KingMeterException(ResponseCode.Device_Token_Not_Correct);
                 }
             } else {
                 log.info(new KingMeterMarker("Socket,ReLogin,1002"),
-                        "{}|{}|{}|{}|{}", deviceId, Integer.toHexString(functionCode), newChannelId, msg, token);
+                        "{}|{}|{}|{}|{}", deviceId, Integer.toHexString(functionCode), newChannelId,
+                        ByteUtil.bytesToHexString(msg), token);
 
                 newChannel.close();
                 throw new KingMeterException(ResponseCode.Device_Token_Not_Correct);
@@ -133,8 +136,21 @@ public class CacheUtil {
                 /**
                  * the token does not exist in memory , so we think it's invalid , we should close this connection right now.
                  */
+                log.info(" ~~~~~~~~~~ tokenAndDeviceIdMap start:");
+                tokenAndDeviceIdMap.entrySet().forEach(entry->{
+                    log.info("id : {} , token : {}",entry.getValue(),entry.getKey());
+                });
+                log.info(" ~~~~~~~~~~ tokenAndDeviceIdMap end:");
+
+                log.info(" ######### channelIdAndChannelMap start:");
+                channelIdAndChannelMap.entrySet().forEach(entry->{
+                    log.info("channelId : {} ",entry.getKey());
+                });
+                log.info(" ######### channelIdAndChannelMap end:");
+
                 log.info(new KingMeterMarker("Socket,ReLogin,1003"),
-                        "{}|{}|{}|{}", deviceId, Integer.toHexString(functionCode), newChannelId, msg);
+                        "{}|{}|{}|{}", deviceId, Integer.toHexString(functionCode), newChannelId,
+                        ByteUtil.bytesToHexString(msg));
                 newChannel.close();
                 throw new KingMeterException(ResponseCode.Device_Token_Not_Correct);
             }

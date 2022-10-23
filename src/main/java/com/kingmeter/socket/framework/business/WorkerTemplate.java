@@ -16,10 +16,12 @@ import com.kingmeter.utils.ByteUtil;
 import com.kingmeter.utils.CRCUtils;
 import com.kingmeter.utils.StringUtil;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.util.AttributeKey;
 import io.netty.util.ReferenceCountUtil;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -32,6 +34,7 @@ import java.io.StringWriter;
  * template strategy
  * used for receiving data from hardware
  */
+@Data
 @Slf4j
 public abstract class WorkerTemplate {
 
@@ -43,6 +46,7 @@ public abstract class WorkerTemplate {
 
     @Autowired
     private HeaderCode headerCode;
+
 
     public void run(ChannelHandlerContext ctx, ByteBuf message) {
         String token;
@@ -64,8 +68,11 @@ public abstract class WorkerTemplate {
             //3.2 get token
             token = getToken(tokenArray);
 
+//            readHexString(message,"SITEID",functionCode);
+
             //4.1 validate token
             String deviceId = validateTokenAndGetDeviceIdIfInNeed(functionCode, tokenArray, token, ctx);
+//            String deviceId = "";
 
             //4.2 get data array
             int dataLength = validateLength - headerCode.getTOKEN_LENGTH() - 3;
@@ -76,7 +83,6 @@ public abstract class WorkerTemplate {
             //5,parse to RequestBody
             int resentFlag = message.getByte(headerCode.getTOKEN_LENGTH() + 4) & 0xFF;
 
-//            readHexString(abc,deviceId,functionCode);
 
             RequestBody requestBody = parseToRequestBody(deviceId,
                     functionCode,

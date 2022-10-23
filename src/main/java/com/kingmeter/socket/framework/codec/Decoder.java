@@ -94,9 +94,9 @@ public class Decoder extends ByteToMessageDecoder {
                     throw new KingMeterException(ResponseCode.EndCodeErrorType);
                 }
 
-//                PooledByteBufAllocator allocator = (PooledByteBufAllocator) channel.config().getAllocator();
-//                ByteBuf result = allocator.heapBuffer(length + 8);
-                ByteBuf result = PooledByteBufAllocator.DEFAULT.directBuffer(length+8);
+                PooledByteBufAllocator allocator = (PooledByteBufAllocator) channel.config().getAllocator();
+                ByteBuf result = allocator.heapBuffer(length + 8);
+//                ByteBuf result = PooledByteBufAllocator.DEFAULT.directBuffer(length+8);
                 in.readBytes(result, length + 8);
                 out.add(result);
             }

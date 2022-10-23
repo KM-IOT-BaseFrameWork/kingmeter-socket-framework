@@ -56,7 +56,7 @@ public class NettyServer {
     }
 
     private Future<Void> startAsync() {
-        ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.valueOf("PARANOID"));
+//        ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.valueOf("PARANOID"));
 
         InetSocketAddress address = new InetSocketAddress(socketServerConfig.getSocketPort());
         initGroups();
