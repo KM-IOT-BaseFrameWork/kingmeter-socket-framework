@@ -38,7 +38,7 @@ public class ClientAdapter {
     private SocketServerConfig socketServerConfig;
 
     @Autowired
-    private LoggerConfig loggerConfig;
+    private SocketServerConfig serverConfig;
 
     private EventLoopGroup group = new NioEventLoopGroup(5);
     private final EventExecutorGroup businessGroup = new DefaultEventExecutorGroup(5);
@@ -66,7 +66,7 @@ public class ClientAdapter {
                 .option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
                 .handler(new ClientChannelInitializer(
                         worker, headerCode,
-                        businessWorker, businessGroup, this, loggerConfig));
+                        businessWorker, businessGroup, this,serverConfig));
 
         for (int i = 0; i < deviceCount; i++) {
             Long siteId = siteIdStart + i;

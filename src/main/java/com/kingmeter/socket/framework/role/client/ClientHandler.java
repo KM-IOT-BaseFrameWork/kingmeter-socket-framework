@@ -3,6 +3,7 @@ package com.kingmeter.socket.framework.role.client;
 
 import com.kingmeter.common.KingMeterMarker;
 import com.kingmeter.socket.framework.business.WorkerTemplate;
+import com.kingmeter.socket.framework.dto.RequestBody;
 import com.kingmeter.socket.framework.util.CacheUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
@@ -15,7 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 
 
 @Slf4j
-public class ClientHandler extends SimpleChannelInboundHandler<ByteBuf> {
+public class ClientHandler extends SimpleChannelInboundHandler<RequestBody> {
 
     private ClientAdapter clientAdapter;
     private WorkerTemplate worker;
@@ -49,7 +50,7 @@ public class ClientHandler extends SimpleChannelInboundHandler<ByteBuf> {
         Attribute<String> passwordAttr = channel.attr(passwordKey);
         String password = passwordAttr.get();
 
-        log.info("active siteId is {},password is {}", siteId,password);
+        log.info("active siteId is {},password is {}", siteId, password);
 
         //add businessGroup into channel , for running heartbeat job
         AttributeKey<EventExecutorGroup> executorGroupAttributeKey =
@@ -58,7 +59,7 @@ public class ClientHandler extends SimpleChannelInboundHandler<ByteBuf> {
         groupAttr.set(businessGroup);
 
         businessGroup.submit(() ->
-                businessWorker.login(ctx, siteId,password)
+                businessWorker.login(ctx, siteId, password)
         );
     }
 
@@ -94,21 +95,18 @@ public class ClientHandler extends SimpleChannelInboundHandler<ByteBuf> {
                 "{}|{}", siteId, channel.id().asLongText());
 
         //connect new server
-        if(CacheUtil.getInstance().getDeviceResultMap().containsKey(siteId+"_reLogin")){
+        if (CacheUtil.getInstance().getDeviceResultMap().containsKey(siteId + "_reLogin")) {
             log.info(new KingMeterMarker("Socket,ReLogin,1007"),
                     "{}", siteId);
 
-            clientAdapter.bind(host,port,siteId,1,password);
-            businessWorker.login(ctx,siteId,password);
+            clientAdapter.bind(host, port, siteId, 1, password);
+            businessWorker.login(ctx, siteId, password);
         }
     }
 
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, ByteBuf msg) throws Exception {
-        msg.retain();
-        businessGroup.submit(() -> {
-            worker.run(ctx,msg);
-        });
+    protected void channelRead0(ChannelHandlerContext ctx, RequestBody msg) throws Exception {
+        worker.dealWithBusiness(msg, ctx);
     }
 
     @Override

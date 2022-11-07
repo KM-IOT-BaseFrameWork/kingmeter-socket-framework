@@ -2,14 +2,12 @@ package com.kingmeter.socket.framework.codec;
 
 import com.alibaba.fastjson.JSONObject;
 import com.kingmeter.common.KingMeterMarker;
-import com.kingmeter.socket.framework.config.LoggerConfig;
 import com.kingmeter.socket.framework.dto.ResponseBody;
 import com.kingmeter.utils.ByteUtil;
 import com.kingmeter.utils.CRCUtils;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToByteEncoder;
-import io.netty.util.ReferenceCountUtil;
 import lombok.extern.slf4j.Slf4j;
 
 
@@ -17,27 +15,22 @@ import lombok.extern.slf4j.Slf4j;
 public class Encoder extends MessageToByteEncoder<ResponseBody> {
 
 
-    private final LoggerConfig loggerConfig;
 
-    public Encoder(LoggerConfig loggerConfig) {
-        this.loggerConfig = loggerConfig;
+    public Encoder() {
     }
 
     @Override
     protected void encode(ChannelHandlerContext ctx, ResponseBody response, ByteBuf out) throws Exception {
         out.writeBytes(getResponseFinalByteArray(response, ctx));
-//        ctx.flush();
     }
 
 
     private byte[] getResponseFinalByteArray(ResponseBody response, ChannelHandlerContext ctx) {
-        if (loggerConfig.isLog_model()) {
-            log.info(new KingMeterMarker("Socket,TCP_IO,3002"),
-                    "{}|{}|{}|{}", response.getDeviceId(),
-                    ByteUtil.bytesToHexString(response.getFunctionCodeArray()),
-                    ctx.channel().id().asLongText(),
-                    JSONObject.toJSONString(response));
-        }
+        log.trace(new KingMeterMarker("Socket,TCP_IO,3002"),
+                "{}|{}|{}|{}", response.getDeviceId(),
+                ByteUtil.bytesToHexString(response.getFunctionCodeArray()),
+                ctx.channel().id().asLongText(),
+                JSONObject.toJSONString(response));
 
         //change data into hex string
         byte[] dataArray = response.getData().getBytes();
@@ -77,13 +70,11 @@ public class Encoder extends MessageToByteEncoder<ResponseBody> {
         result[checkByteArray.length + 7] = response.getEND_CODE_2();
 
 
-        if (loggerConfig.isLog_message()) {
-            log.info(new KingMeterMarker("Socket,TCP_IO,2002"),
-                    "{}|{}|{}|{}", response.getDeviceId(),
-                    ByteUtil.bytesToHexString(response.getFunctionCodeArray()),
-                    ctx.channel().id().asLongText(),
-                    ByteUtil.bytesToHexString(result));
-        }
+        log.trace(new KingMeterMarker("Socket,TCP_IO,2002"),
+                "{}|{}|{}|{}", response.getDeviceId(),
+                ByteUtil.bytesToHexString(response.getFunctionCodeArray()),
+                ctx.channel().id().asLongText(),
+                ByteUtil.bytesToHexString(result));
         return result;
     }
 

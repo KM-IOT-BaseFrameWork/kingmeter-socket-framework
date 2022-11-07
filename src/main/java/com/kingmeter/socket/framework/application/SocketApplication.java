@@ -1,7 +1,6 @@
 package com.kingmeter.socket.framework.application;
 
 
-import com.google.common.util.concurrent.SimpleTimeLimiter;
 import com.kingmeter.common.KingMeterException;
 import com.kingmeter.common.ResponseCode;
 import com.kingmeter.socket.framework.config.HeaderCode;
@@ -16,8 +15,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -58,13 +55,13 @@ public class SocketApplication {
 
     public void sendSocketMsg(String deviceId, List<ResponseBody> array) {
         SocketChannel channel = getChannelByDeviceId(deviceId);
-        log.info("~~~~~~~~~~~~1~~prepare stick package now {}",deviceId);
+        log.trace("~~~~~~~~~~~~1~~prepare stick package now {}",deviceId);
         for (ResponseBody body : array) {
             channel.write(body);
         }
-        log.info("~~~~~~~~~~~~2~~write stick package now {}",deviceId);
+        log.trace("~~~~~~~~~~~~2~~write stick package now {}",deviceId);
         channel.flush();
-        log.info("~~~~~~~~~~~~3~~write stick package end {}",deviceId);
+        log.trace("~~~~~~~~~~~~3~~write stick package end {}",deviceId);
     }
 
     public ResponseBody createResponseBody(long deviceId,

@@ -9,6 +9,7 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
+import io.netty.util.AttributeKey;
 import lombok.extern.slf4j.Slf4j;
 
 
@@ -27,29 +28,25 @@ public class AcceptorIdleStateTrigger extends ChannelInboundHandlerAdapter {
             IdleState state = ((IdleStateEvent) evt).state();
             if (state == IdleState.READER_IDLE) {
                 SocketChannel channel = (SocketChannel) ctx.channel();
-                String deviceId = CacheUtil.getInstance().getChannelIdAndDeviceIdMap().getOrDefault(channel.id().asLongText(), "0");
-                log.info(new KingMeterMarker("Socket,ChannelIdle,1001"),
-                        "{}|{}", deviceId, channel.id().asLongText());
-                dealWithIDLE(channel, deviceId);
+                Long deviceId = channel.attr(AttributeKey.<Long>valueOf("DeviceId")).get();
+//                String deviceId = CacheUtil.getInstance().getChannelIdAndDeviceIdMap().getOrDefault(channel.id().asLongText(), "0");
+                log.warn(new KingMeterMarker("Socket,ChannelIdle,1001"),
+                        "{}|{}|{}", deviceId, channel.id().asLongText(),channel.remoteAddress());
+                dealWithIDLE(channel, String.valueOf(deviceId));
                 return;
             }
-        }else{
+        } else {
             super.userEventTriggered(ctx, evt);
         }
     }
 
     private void dealWithIDLE(SocketChannel channel, String deviceId) {
-        if (Long.parseLong(deviceId) > 0) {
-            if (channel != null){
-//                if(channel.isWritable()){
-//                    channel.writeAndFlush(worker.getConnectionTestCommand(deviceId)).
-//                            addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
-//                }else{
-//                    channel.deregister();//todo
-//                }
-                channel.close();
+        if (deviceId != null && !deviceId.equals("null") && Long.parseLong(deviceId) > 0) {
+            if (channel != null) {
+                worker.dealWithOffline(channel, deviceId);
             }
         }
+        channel.close();
     }
 
 

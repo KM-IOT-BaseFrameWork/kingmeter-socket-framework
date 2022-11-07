@@ -1,31 +1,21 @@
 package com.kingmeter.socket.framework.role.server;
 
 import com.kingmeter.socket.framework.business.WorkerTemplate;
-import com.kingmeter.socket.framework.codec.Decoder;
-import com.kingmeter.socket.framework.codec.Encoder;
 import com.kingmeter.socket.framework.config.HeaderCode;
-import com.kingmeter.socket.framework.config.LoggerConfig;
 import com.kingmeter.socket.framework.config.SocketServerConfig;
-import com.kingmeter.socket.framework.idletrigger.AcceptorIdleStateTrigger;
-import com.kingmeter.socket.framework.util.CacheUtil;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.channel.*;
 import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.epoll.EpollServerSocketChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.timeout.IdleStateHandler;
-import io.netty.util.ResourceLeakDetector;
 import io.netty.util.concurrent.Future;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.net.InetSocketAddress;
-import java.util.Map;
-import java.util.concurrent.*;
 
 @Slf4j
 @Component()
@@ -37,16 +27,11 @@ public class NettyServer {
     @Autowired
     private HeaderCode headerCode;
 
-    @Autowired
-    private LoggerConfig loggerConfig;
 
     private EventLoopGroup handlerEventLoopGroup = new DefaultEventLoopGroup();
     private EventLoopGroup bossGroup; //NioEventLoopGroup extends MultithreadEventLoopGroup Math.max(1, SystemPropertyUtil.getInt("io.netty.eventLoopThreads", NettyRuntime.availableProcessors() * 2));
     private EventLoopGroup workerGroup;
 
-//    private final ExecutorService executorService = new ThreadPoolExecutor(1, 3, 30, TimeUnit.SECONDS,
-//            new ArrayBlockingQueue<>(1000),
-//            new ThreadPoolExecutor.DiscardPolicy());
 
     @Autowired
     private WorkerTemplate worker;
@@ -71,7 +56,7 @@ public class NettyServer {
                 .channel(channelClass) //非阻塞模式
                 .childHandler(new ServerChannelInitializer(
                         worker, headerCode,
-                        socketServerConfig, loggerConfig,
+                        socketServerConfig,
                         handlerEventLoopGroup));
 
         applyConnectionOptions(b);
@@ -126,7 +111,7 @@ public class NettyServer {
         bossGroup.shutdownGracefully();
         workerGroup.shutdownGracefully();
         handlerEventLoopGroup.shutdownGracefully();
-        log.info("Socket server stopped");
+        log.error("Socket server stopped");
     }
 
 

@@ -3,10 +3,16 @@ package com.kingmeter.socket.framework.util;
 import com.kingmeter.common.KingMeterException;
 import com.kingmeter.common.KingMeterMarker;
 import com.kingmeter.common.ResponseCode;
+import com.kingmeter.socket.framework.codec.Encoder;
+import com.kingmeter.socket.framework.codec.KMDecoder;
+import com.kingmeter.socket.framework.idletrigger.AcceptorIdleStateTrigger;
+import com.kingmeter.socket.framework.role.server.KMServerHandler;
 import com.kingmeter.utils.ByteUtil;
 import com.kingmeter.utils.StringUtil;
 import io.netty.channel.Channel;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
+import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.AttributeKey;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -75,14 +81,6 @@ public class CacheUtil {
      */
     private ConcurrentHashMap<String, String> tokenAndDeviceIdMap = new ConcurrentHashMap();
 
-
-//    /**
-//     * remote unlock result
-//     * <p>
-//     * key: {lockId}_{userId} ,value : stu
-//     */
-//    private volatile ConcurrentMap<String, Integer> scanUnlockResultMap = new ConcurrentHashMap();
-
     /**
      * get info from device
      * key {lockId}_{database} ,value : map
@@ -97,7 +95,7 @@ public class CacheUtil {
 
 
     public String validateTokenAndGetDeviceIdExceptLogin(
-            int functionCode, String token, byte[] msg, SocketChannel newChannel) {
+            int functionCode, String token, byte[] tokenArray, SocketChannel newChannel) {
 
         String deviceId = tokenAndDeviceIdMap.getOrDefault(token, "0");
         String newChannelId = newChannel.id().asLongText();
@@ -110,16 +108,16 @@ public class CacheUtil {
                 if (token.equals(oldToken)) {
                     return deviceId;
                 } else {
-                    log.info(new KingMeterMarker("Socket,ReLogin,1001"),
+                    log.error(new KingMeterMarker("Socket,ReLogin,1001"),
                             "{}|{}|{}|{}", deviceId, Integer.toHexString(functionCode), newChannelId,
-                            ByteUtil.bytesToHexString(msg));
+                            ByteUtil.bytesToHexString(tokenArray));
                     newChannel.close();
                     throw new KingMeterException(ResponseCode.Device_Token_Not_Correct);
                 }
             } else {
-                log.info(new KingMeterMarker("Socket,ReLogin,1002"),
+                log.error(new KingMeterMarker("Socket,ReLogin,1002"),
                         "{}|{}|{}|{}|{}", deviceId, Integer.toHexString(functionCode), newChannelId,
-                        ByteUtil.bytesToHexString(msg), token);
+                        ByteUtil.bytesToHexString(tokenArray), token);
 
                 newChannel.close();
                 throw new KingMeterException(ResponseCode.Device_Token_Not_Correct);
@@ -130,27 +128,27 @@ public class CacheUtil {
              * we should validate the token ,if the token exist in memory , we should update the channelId for this device
              */
             if (tokenAndDeviceIdMap.containsKey(token)) {
-                dealWithChangeIpOrPort(functionCode, deviceId, token, newChannel);
+                dealWithChangeIpOrPort(deviceId, newChannel);
                 return deviceId;
             } else {
                 /**
                  * the token does not exist in memory , so we think it's invalid , we should close this connection right now.
                  */
-                log.info(" ~~~~~~~~~~ tokenAndDeviceIdMap start:");
-                tokenAndDeviceIdMap.entrySet().forEach(entry->{
-                    log.info("id : {} , token : {}",entry.getValue(),entry.getKey());
+                log.error(" ~~~~~~~~~~ tokenAndDeviceIdMap start:");
+                tokenAndDeviceIdMap.entrySet().forEach(entry -> {
+                    log.error("id : {} , token : {}", entry.getValue(), entry.getKey());
                 });
-                log.info(" ~~~~~~~~~~ tokenAndDeviceIdMap end:");
+                log.error(" ~~~~~~~~~~ tokenAndDeviceIdMap end:");
 
-                log.info(" ######### channelIdAndChannelMap start:");
-                channelIdAndChannelMap.entrySet().forEach(entry->{
-                    log.info("channelId : {} ",entry.getKey());
+                log.error(" ######### channelIdAndChannelMap start:");
+                channelIdAndChannelMap.entrySet().forEach(entry -> {
+                    log.error("channelId : {} ", entry.getKey());
                 });
-                log.info(" ######### channelIdAndChannelMap end:");
+                log.error(" ######### channelIdAndChannelMap end:");
 
-                log.info(new KingMeterMarker("Socket,ReLogin,1003"),
+                log.error(new KingMeterMarker("Socket,ReLogin,1003"),
                         "{}|{}|{}|{}", deviceId, Integer.toHexString(functionCode), newChannelId,
-                        ByteUtil.bytesToHexString(msg));
+                        ByteUtil.bytesToHexString(tokenArray));
                 newChannel.close();
                 throw new KingMeterException(ResponseCode.Device_Token_Not_Correct);
             }
@@ -182,9 +180,6 @@ public class CacheUtil {
                 oldChannel.deregister();
                 oldChannel.close();
             }
-        } else {
-            //最新登录
-
         }
         channelIdAndChannelMap.put(newChannelId, channel);
         channelIdAndDeviceIdMap.put(newChannelId, deviceId);
@@ -195,15 +190,16 @@ public class CacheUtil {
         tokenAndDeviceIdMap.put(token, deviceId);
         deviceIdAndTokenArrayMap.put(deviceId, tokenArray);
 
-//        log.info(new KingMeterMarker("Socket,Login,1000"),
-//                "{}|{}|{}|{}|{}", deviceId, newChannelId, oldChannelId,
-//                token, oldToken);
-
         channel.attr(AttributeKey.<Long>valueOf("DeviceId")).set(Long.parseLong(deviceId));
     }
 
 
-    private void dealWithChangeIpOrPort(int functionCode, String deviceId, String token, SocketChannel channel) {
+    public void dealWithConnectionReset(String deviceId, SocketChannel channel){
+        String channelId = channel.id().asLongText();
+
+    }
+
+    public void dealWithChangeIpOrPort(String deviceId, SocketChannel channel) {
         //1,confirm whether there is already channel in memory
         String newChannelId = channel.id().asLongText();
         String oldChannelId = "";
@@ -212,11 +208,16 @@ public class CacheUtil {
             SocketChannel oldChannel = deviceIdAndChannelMap.get(deviceId);
             oldChannelId = oldChannel.id().asLongText();
             if (!newChannelId.equals(oldChannelId)) {
-                log.info(new KingMeterMarker("Socket,ReLogin,1004"),
-                        "{}|{}|{}|{}|{}|{}", deviceId, Integer.toHexString(functionCode),
+                log.warn(new KingMeterMarker("Socket,ReLogin,1004"),
+                        "{}|0|{}|{}|{}|{}", deviceId,
                         newChannelId, oldChannelId,
                         channel.remoteAddress(), oldChannel.remoteAddress());
-
+                oldChannel.pipeline().remove(LengthFieldBasedFrameDecoder.class);
+                oldChannel.pipeline().remove(IdleStateHandler.class);
+                oldChannel.pipeline().remove(AcceptorIdleStateTrigger.class);
+                oldChannel.pipeline().remove(KMDecoder.class);
+                oldChannel.pipeline().remove(Encoder.class);
+                oldChannel.pipeline().remove(KMServerHandler.class);
                 oldChannel.pipeline().deregister();
                 oldChannel.deregister();
 
@@ -228,55 +229,49 @@ public class CacheUtil {
         channelIdAndDeviceIdMap.put(newChannelId, deviceId);
         deviceIdAndChannelMap.put(deviceId, channel);
 
-        log.info(new KingMeterMarker("Socket,ReLogin,1006"),
-                "{}|{}|{}|{}|{}", deviceId, Integer.toHexString(functionCode),
-                newChannelId, oldChannelId, token);
+        log.warn(new KingMeterMarker("Socket,ReLogin,1006"),
+                "{}|0|{}|{}|{}", deviceId,
+                newChannelId, oldChannelId,channel.remoteAddress());
 
         channel.attr(AttributeKey.<Long>valueOf("DeviceId")).set(Long.parseLong(deviceId));
     }
 
-    public String dealWithOffLine(SocketChannel channel, String deviceId) {
-        return dealWithOffLine(channel, deviceId, true);
+    //only remove channel info
+    public void dealWithChannelInactive(SocketChannel channel) {
+        String channelId = channel.id().asLongText();
+        channelIdAndChannelMap.remove(channelId);
+        String deviceId = channelIdAndDeviceIdMap.getOrDefault(channelId, null);
+        if (deviceId != null) {
+            channelIdAndDeviceIdMap.remove(channelId);
+            Channel channelInMem = deviceIdAndChannelMap.getOrDefault(deviceId, null);
+            if (channelInMem != null) {
+                String channelIdInMem = channelInMem.id().asLongText();
+                if (channelIdInMem.equals(channelId)) {
+                    deviceIdAndChannelMap.remove(deviceId);
+                }
+            }
+        }
     }
 
 
-    public String dealWithOffLine(Channel channel, String deviceId, boolean deleteDeviceInfoFlag) {
+    public String dealWithOffLine(Channel channel) {
         String channelId = channel.id().asLongText();
+        String deviceId = channelIdAndDeviceIdMap.getOrDefault(channelId, "0");
 
-        if (channelIdAndDeviceIdMap.containsKey(channelId)) {
-            deviceId = channelIdAndDeviceIdMap.getOrDefault(channelId, "");
-
-            if (StringUtil.isNotEmpty(deviceId)) {
-                log.info(new KingMeterMarker("Socket,DeviceOffline,1001"),
-                        "{}|{}", deviceId, channelId);
-                deviceIdAndChannelMap.remove(deviceId);
-            } else {
-                log.info(new KingMeterMarker("Socket,DeviceOffline,1002"),
-                        "{}|{}", 0, channelId);
-            }
-        } else {
-            log.info(new KingMeterMarker("Socket,DeviceOffline,1003"),
-                    "{}|{}", deviceId, channelId);
-        }
         channelIdAndChannelMap.remove(channelId);
         channelIdAndDeviceIdMap.remove(channelId);
-        if (deleteDeviceInfoFlag) {
-            if (StringUtil.isNoneEmpty(deviceId) &&
-                    !deviceId.equals("0")) deleteDeviceInfoInCache(deviceId);
-        }
-        return deviceId;
-    }
+        deviceIdAndChannelMap.remove(deviceId);
 
-
-    private void deleteDeviceInfoInCache(String deviceId) {
-        if (deviceIdAndTokenMap.containsKey(deviceId)) {
-            String token = deviceIdAndTokenMap.get(deviceId);
-            tokenAndDeviceIdMap.remove(token);
+        String token = deviceIdAndTokenMap.getOrDefault(deviceId, null);
+        if (token != null) {
             deviceIdAndTokenMap.remove(deviceId);
+            tokenAndDeviceIdMap.remove(token);
             deviceIdAndTokenArrayMap.remove(deviceId);
         }
-        deviceIdAndChannelMap.remove(deviceId);
-        deviceInfoMap.remove(Long.valueOf(deviceId));
+        deviceResultMap.remove(deviceId);
+
+        deviceInfoMap.remove(Long.parseLong(deviceId));
+        return deviceId;
     }
 
 }
