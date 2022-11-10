@@ -9,6 +9,7 @@ import com.kingmeter.socket.framework.idletrigger.AcceptorIdleStateTrigger;
 import com.kingmeter.socket.framework.role.server.KMServerHandler;
 import com.kingmeter.utils.ByteUtil;
 import com.kingmeter.utils.StringUtil;
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
@@ -95,7 +96,7 @@ public class CacheUtil {
 
 
     public String validateTokenAndGetDeviceIdExceptLogin(
-            int functionCode, String token, byte[] tokenArray, SocketChannel newChannel) {
+            int functionCode, String token, byte[] tokenArray, SocketChannel newChannel, ByteBuf message) {
 
         String deviceId = tokenAndDeviceIdMap.getOrDefault(token, "0");
         String newChannelId = newChannel.id().asLongText();
@@ -111,15 +112,12 @@ public class CacheUtil {
                     log.error(new KingMeterMarker("Socket,ReLogin,1001"),
                             "{}|{}|{}|{}", deviceId, Integer.toHexString(functionCode), newChannelId,
                             ByteUtil.bytesToHexString(tokenArray));
-                    newChannel.close();
                     throw new KingMeterException(ResponseCode.Device_Token_Not_Correct);
                 }
             } else {
                 log.error(new KingMeterMarker("Socket,ReLogin,1002"),
                         "{}|{}|{}|{}|{}", deviceId, Integer.toHexString(functionCode), newChannelId,
                         ByteUtil.bytesToHexString(tokenArray), token);
-
-                newChannel.close();
                 throw new KingMeterException(ResponseCode.Device_Token_Not_Correct);
             }
         } else {
@@ -146,10 +144,18 @@ public class CacheUtil {
                 });
                 log.error(" ######### channelIdAndChannelMap end:");
 
+                int first_position = message.readerIndex();
+                int first_limit = first_position + message.readableBytes();
+
+                byte[] first_TmpBf = new byte[first_limit - first_position];
+                message.markReaderIndex();
+                message.readBytes(first_TmpBf, 0, first_limit - first_position);
+
                 log.error(new KingMeterMarker("Socket,ReLogin,1003"),
-                        "{}|{}|{}|{}", deviceId, Integer.toHexString(functionCode), newChannelId,
-                        ByteUtil.bytesToHexString(tokenArray));
-                newChannel.close();
+                        "{}|{}|{}|{}|{}", deviceId, Integer.toHexString(functionCode), newChannelId,
+                        token, ByteUtil.bytesToHexString(first_TmpBf));
+
+                message.resetReaderIndex();
                 throw new KingMeterException(ResponseCode.Device_Token_Not_Correct);
             }
         }
@@ -194,7 +200,7 @@ public class CacheUtil {
     }
 
 
-    public void dealWithConnectionReset(String deviceId, SocketChannel channel){
+    public void dealWithConnectionReset(String deviceId, SocketChannel channel) {
         String channelId = channel.id().asLongText();
 
     }
@@ -224,14 +230,14 @@ public class CacheUtil {
                 channelIdAndChannelMap.remove(oldChannelId);
                 channelIdAndDeviceIdMap.remove(oldChannelId);
             }
+        }else{
+            log.warn(new KingMeterMarker("Socket,ReLogin,1006"),
+                    "{}|0|{}|{}|{}", deviceId,
+                    newChannelId, oldChannelId, channel.remoteAddress());
         }
         channelIdAndChannelMap.put(newChannelId, channel);
         channelIdAndDeviceIdMap.put(newChannelId, deviceId);
         deviceIdAndChannelMap.put(deviceId, channel);
-
-        log.warn(new KingMeterMarker("Socket,ReLogin,1006"),
-                "{}|0|{}|{}|{}", deviceId,
-                newChannelId, oldChannelId,channel.remoteAddress());
 
         channel.attr(AttributeKey.<Long>valueOf("DeviceId")).set(Long.parseLong(deviceId));
     }

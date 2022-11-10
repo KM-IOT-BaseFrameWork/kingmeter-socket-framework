@@ -1,5 +1,6 @@
 package com.kingmeter.socket.framework.codec;
 
+import ch.qos.logback.classic.Level;
 import com.kingmeter.common.KingMeterException;
 import com.kingmeter.common.KingMeterMarker;
 import com.kingmeter.common.ResponseCode;
@@ -17,6 +18,7 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.MessageToMessageDecoder;
 import io.netty.util.AttributeKey;
 import lombok.extern.slf4j.Slf4j;
+
 import java.net.InetSocketAddress;
 import java.util.List;
 
@@ -39,21 +41,24 @@ public class KMDecoder extends MessageToMessageDecoder<ByteBuf> {
     public void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) {
         final int limit = in.readableBytes();
         Channel channel = ctx.channel();
+//        Channel channel = null;
         long deviceId = 0;
         if (channel.hasAttr(AttributeKey.<Long>valueOf("DeviceId"))) {
             deviceId = ctx.channel().attr(AttributeKey.<Long>valueOf("DeviceId")).get();
         }
 
-        checkByteDetail(in, deviceId, channel);
-
         if (headerCode.getSTART_CODE_1() != in.getByte(0) &&
                 headerCode.getSTART_CODE_2() != in.getByte(1)) {
+            checkByteDetail(in, deviceId, channel, Level.ERROR);
             throw new KingMeterException(ResponseCode.StartCodeErrorType);
         }
         if (headerCode.getEND_CODE_1() != in.getByte(limit - 2) &&
                 headerCode.getEND_CODE_2() != in.getByte(limit - 1)) {
+            checkByteDetail(in, deviceId, channel, Level.ERROR);
             throw new KingMeterException(ResponseCode.EndCodeErrorType);
         }
+
+        checkByteDetail(in, deviceId, channel, Level.TRACE);
 
         packageRequestBody(ctx, in, out);
     }
@@ -74,7 +79,8 @@ public class KMDecoder extends MessageToMessageDecoder<ByteBuf> {
         String token = getToken(tokenArray);
 
         //4.1 validate token
-        String deviceId = validateTokenAndGetDeviceIdIfInNeed(functionCode, tokenArray, token, ctx);
+//        String deviceId = "";
+        String deviceId = validateTokenAndGetDeviceIdIfInNeed(functionCode, tokenArray, token, ctx, message);
 
         //4.2 get data array
         int dataLength = validateLength - headerCode.getTOKEN_LENGTH() - 3;
@@ -105,7 +111,7 @@ public class KMDecoder extends MessageToMessageDecoder<ByteBuf> {
                 resentFlag, data.toString());
     }
 
-    private void checkByteDetail(ByteBuf in, long deviceId, Channel channel) {
+    private void checkByteDetail(ByteBuf in, long deviceId, Channel channel, Level logLevel) {
         int first_position = in.readerIndex();
         int first_limit = first_position + in.readableBytes();
 
@@ -117,9 +123,16 @@ public class KMDecoder extends MessageToMessageDecoder<ByteBuf> {
         String ip = inSocket.getAddress().getHostAddress();
         int port = inSocket.getPort();
 
-        log.trace(new KingMeterMarker("Socket,TCP_IO,2001"),
-                "{}|{}|{}|{}|{}|{}|{}", deviceId, first_position, first_limit,
-                ByteUtil.bytesToHexString(first_TmpBf), ip, port, channel.id().asLongText());
+        if (logLevel.equals(Level.ERROR)) {
+            log.error(new KingMeterMarker("Socket,TCP_IO,2001"),
+                    "{}|{}|{}|{}|{}|{}|{}", deviceId, first_position, first_limit,
+                    ByteUtil.bytesToHexString(first_TmpBf), ip, port, channel.id().asLongText());
+        } else {
+            log.trace(new KingMeterMarker("Socket,TCP_IO,2001"),
+                    "{}|{}|{}|{}|{}|{}|{}", deviceId, first_position, first_limit,
+                    ByteUtil.bytesToHexString(first_TmpBf), ip, port, channel.id().asLongText());
+        }
+
 
         in.resetReaderIndex();
     }
@@ -163,11 +176,25 @@ public class KMDecoder extends MessageToMessageDecoder<ByteBuf> {
      * it will login again until the server receive the login data .
      */
     private String validateTokenAndGetDeviceIdIfInNeed(int functionCode, byte[] tokenArray,
-                                                       String token, ChannelHandlerContext ctx) {
+                                                       String token, ChannelHandlerContext ctx, ByteBuf message) {
         if (functionCode == config.getLoginFunctionCode()) {
+
+            int first_position = message.readerIndex();
+            int first_limit = first_position + message.readableBytes();
+
+            byte[] first_TmpBf = new byte[first_limit - first_position];
+            message.markReaderIndex();
+            message.readBytes(first_TmpBf, 0, first_limit - first_position);
+
+            log.warn(new KingMeterMarker("Socket,ReLogin,1008"),
+                    "{}|{}|{}|{}", Integer.toHexString(functionCode), ctx.channel().id().asLongText(),
+                    token, ByteUtil.bytesToHexString(first_TmpBf));
+
+            message.resetReaderIndex();
+
             return "";
         }
         SocketChannel channel = (SocketChannel) ctx.channel();
-        return CacheUtil.getInstance().validateTokenAndGetDeviceIdExceptLogin(functionCode, token, tokenArray, channel);
+        return CacheUtil.getInstance().validateTokenAndGetDeviceIdExceptLogin(functionCode, token, tokenArray, channel, message);
     }
 }

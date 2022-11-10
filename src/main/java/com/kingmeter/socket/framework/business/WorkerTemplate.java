@@ -84,21 +84,8 @@ public abstract class WorkerTemplate {
 
 
     public void dealWithException(ChannelHandlerContext ctx, Throwable cause) {
-
-        if (cause instanceof KingMeterException) {
-            KingMeterException e = (KingMeterException) cause;
-            if (e.getCode() == ResponseCode.StartCodeErrorType.getCode() ||
-                    e.getCode() == ResponseCode.EndCodeErrorType.getCode() ||
-                    e.getCode() == ResponseCode.CRC16CodeErrorType.getCode()) {
-                log.error("start code, end code or crc16 error");
-                ctx.close();
-                return;
-            }
-        }
-
         SocketChannel channel = (SocketChannel) ctx.channel();
         String channelId = channel.id().asLongText();
-
         long deviceId = 0;
         if (channel.hasAttr(AttributeKey.<Long>valueOf("DeviceId"))) {
             deviceId = channel.attr(AttributeKey.<Long>valueOf("DeviceId")).get();
@@ -108,18 +95,30 @@ public abstract class WorkerTemplate {
                 deviceId = Long.parseLong(CacheUtil.getInstance().getChannelIdAndDeviceIdMap().getOrDefault(channelId, "0"));
             }
         }
+        channel.close();
+        Throwable source = cause.getCause();
+        if (source instanceof KingMeterException) {
+            KingMeterException e = (KingMeterException) source;
+            if (e.getCode() == ResponseCode.StartCodeErrorType.getCode() ||
+                    e.getCode() == ResponseCode.EndCodeErrorType.getCode() ||
+                    e.getCode() == ResponseCode.CRC16CodeErrorType.getCode() ||
+                    e.getCode() == ResponseCode.Device_Token_Not_Correct.getCode()) {
+                log.error("{}|{}", e.getCode(),"start or end code, crc16 error,token not correct ");
+                return;
+            }
+        }
 
         // 如果是 connection reset by peer ，那么要更新缓存内容
         if (cause instanceof IOException) {
-            log.error("update channel and device info when connection reset by peer {}|{}|{}|{}",
-                    deviceId, channelId, channel.remoteAddress(),getStackTraceInfo(cause));
+            log.error("update channel and device info when connection reset by peer {}|{}|{}",
+                    deviceId, channelId, channel.remoteAddress());
             CacheUtil.getInstance().dealWithConnectionReset(String.valueOf(deviceId), channel);
             return;
         }
 
         if (cause instanceof TooLongFrameException) {
-            log.error("io.netty.handler.codec.TooLongFrameException: Adjusted frame length exceeds {}|{}|{}|{}",
-                    deviceId, channelId, channel.remoteAddress(),getStackTraceInfo(cause));
+            log.error("io.netty.handler.codec.TooLongFrameException: Adjusted frame length exceeds {}|{}|{}",
+                    deviceId, channelId, channel.remoteAddress());
             CacheUtil.getInstance().dealWithConnectionReset(String.valueOf(deviceId), channel);
             return;
         }
@@ -166,7 +165,7 @@ public abstract class WorkerTemplate {
         CacheUtil.getInstance().dealWithOffLine(channel);
 
         log.warn(new KingMeterMarker("Socket,DeviceOffline,1004"),
-                "{}|{}|{}", deviceId, channel.id().asLongText(),channel.remoteAddress());
+                "{}|{}|{}", deviceId, channel.id().asLongText(), channel.remoteAddress());
 
         doDealWithOffline(channel, deviceId);
     }
@@ -183,6 +182,7 @@ public abstract class WorkerTemplate {
 
     /**
      * 测试连接是否还能使用
+     *
      * @return responseBody
      */
     public abstract ResponseBody getConnectionTestCommand(String deviceId);
