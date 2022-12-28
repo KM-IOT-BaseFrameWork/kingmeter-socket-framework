@@ -9,6 +9,7 @@ import com.kingmeter.socket.framework.dto.ResponseBody;
 import com.kingmeter.socket.framework.util.CacheUtil;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.timeout.IdleStateHandler;
+import io.netty.util.concurrent.DefaultPromise;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -34,9 +35,9 @@ public class SocketApplication {
      * @param functionCodeArray
      * @param obj
      */
-    public void sendSocketMsg(long deviceId,
-                              byte[] functionCodeArray,
-                              Object obj) {
+    public SocketChannel sendSocketMsg(long deviceId,
+                                       byte[] functionCodeArray,
+                                       Object obj) {
 
         byte[] tokenArray = getTokenFromCache(String.valueOf(deviceId));
 
@@ -44,6 +45,7 @@ public class SocketApplication {
 
         sendSocketMsg(deviceId, tokenArray, channel,
                 functionCodeArray, obj);
+        return channel;
     }
 
     public void sendSocketMsg(long deviceId,
@@ -55,13 +57,12 @@ public class SocketApplication {
 
     public void sendSocketMsg(String deviceId, List<ResponseBody> array) {
         SocketChannel channel = getChannelByDeviceId(deviceId);
-        log.trace("~~~~~~~~~~~~1~~prepare stick package now {}",deviceId);
+        log.trace("~~~~~~~~~~~~1~~prepare stick package now {}", deviceId);
         for (ResponseBody body : array) {
             channel.write(body);
         }
-        log.trace("~~~~~~~~~~~~2~~write stick package now {}",deviceId);
         channel.flush();
-        log.trace("~~~~~~~~~~~~3~~write stick package end {}",deviceId);
+        log.trace("~~~~~~~~~~~~2~~write stick package now {}", deviceId);
     }
 
     public ResponseBody createResponseBody(long deviceId,
@@ -87,6 +88,25 @@ public class SocketApplication {
         responseBody.setToken_length(headerCode.getTOKEN_LENGTH());
         responseBody.setDeviceId(deviceId);
         return responseBody;
+    }
+
+
+    public Object waitForPromiseResult(String key, SocketChannel channel) {
+        DefaultPromise<Object> promise =
+                new DefaultPromise<>(channel.eventLoop());
+        CacheUtil.getInstance().getPROMISES().put(key,promise);
+        try {
+            promise.await(config.getWaitSeconds(),TimeUnit.SECONDS);
+            if(promise.isSuccess()) {
+                // 调用正常
+                return promise.getNow();
+            } else {
+                // 调用失败
+                throw new KingMeterException(ResponseCode.Device_Not_Response);
+            }
+        }catch (InterruptedException e){
+            throw new KingMeterException(ResponseCode.Device_Not_Response);
+        }
     }
 
     public Map<String, String> waitForMapResult(String key) {

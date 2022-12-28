@@ -95,6 +95,10 @@ public class KMDecoder extends MessageToMessageDecoder<ByteBuf> {
                 functionCode,
                 token, tokenArray, resentFlag, dataArray);
 
+
+        log.error(new KingMeterMarker("Socket,TCP_IO,2003"),
+                "{}|{}", deviceId, requestBody.getData());
+
         out.add(requestBody);
     }
 
@@ -123,15 +127,9 @@ public class KMDecoder extends MessageToMessageDecoder<ByteBuf> {
         String ip = inSocket.getAddress().getHostAddress();
         int port = inSocket.getPort();
 
-        if (logLevel.equals(Level.ERROR)) {
-            log.error(new KingMeterMarker("Socket,TCP_IO,2001"),
-                    "{}|{}|{}|{}|{}|{}|{}", deviceId, first_position, first_limit,
-                    ByteUtil.bytesToHexString(first_TmpBf), ip, port, channel.id().asLongText());
-        } else {
-            log.trace(new KingMeterMarker("Socket,TCP_IO,2001"),
-                    "{}|{}|{}|{}|{}|{}|{}", deviceId, first_position, first_limit,
-                    ByteUtil.bytesToHexString(first_TmpBf), ip, port, channel.id().asLongText());
-        }
+        log.error(new KingMeterMarker("Socket,TCP_IO,2001"),
+                "{}|{}|{}|{}|{}|{}|{}", deviceId, first_position, first_limit,
+                ByteUtil.bytesToHexString(first_TmpBf), ip, port, channel.id().asLongText());
 
 
         in.resetReaderIndex();
@@ -186,9 +184,10 @@ public class KMDecoder extends MessageToMessageDecoder<ByteBuf> {
             message.markReaderIndex();
             message.readBytes(first_TmpBf, 0, first_limit - first_position);
 
-            log.warn(new KingMeterMarker("Socket,ReLogin,1008"),
-                    "{}|{}|{}|{}", Integer.toHexString(functionCode), ctx.channel().id().asLongText(),
-                    token, ByteUtil.bytesToHexString(first_TmpBf));
+            log.warn(new KingMeterMarker("Socket,Login,1000"),
+                    "{}|{}|{}|{}|{}", Integer.toHexString(functionCode), ctx.channel().id().asLongText(),
+                    token, ByteUtil.bytesToHexString(first_TmpBf),
+                    ctx.channel().remoteAddress());
 
             message.resetReaderIndex();
 

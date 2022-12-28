@@ -15,6 +15,7 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.AttributeKey;
+import io.netty.util.concurrent.Promise;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
@@ -75,7 +76,6 @@ public class CacheUtil {
      */
     private ConcurrentHashMap<String, byte[]> deviceIdAndTokenArrayMap = new ConcurrentHashMap();
 
-
     /**
      * key : token
      * value : deviceId
@@ -86,6 +86,7 @@ public class CacheUtil {
      * get info from device
      * key {lockId}_{database} ,value : map
      */
+    @Deprecated
     private ConcurrentHashMap<String, Map<String, String>> deviceResultMap = new ConcurrentHashMap();
 
     /**
@@ -93,6 +94,9 @@ public class CacheUtil {
      * the information of the device
      */
     private ConcurrentHashMap<Long, Map<String, String>> deviceInfoMap = new ConcurrentHashMap();
+
+
+    private final Map<String, Promise<Object>> PROMISES = new ConcurrentHashMap<>();
 
 
     public String validateTokenAndGetDeviceIdExceptLogin(
