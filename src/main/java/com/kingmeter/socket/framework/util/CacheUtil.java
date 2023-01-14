@@ -16,7 +16,7 @@ import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.Promise;
-import lombok.Data;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -24,7 +24,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @ThreadSafe
-@Data
+@Getter
 @Slf4j
 public class CacheUtil {
 
@@ -50,50 +50,50 @@ public class CacheUtil {
      * key: channel id
      * value : channel
      */
-    private ConcurrentHashMap<String, SocketChannel> channelIdAndChannelMap = new ConcurrentHashMap();
+    private final ConcurrentHashMap<String, SocketChannel> channelIdAndChannelMap = new ConcurrentHashMap();
 
     /**
      * key: channel id
      * value : device id
      */
-    private ConcurrentHashMap<String, String> channelIdAndDeviceIdMap = new ConcurrentHashMap();
+    private final ConcurrentHashMap<String, String> channelIdAndDeviceIdMap = new ConcurrentHashMap();
 
     /**
      * key: device id
      * value : channel
      */
-    private ConcurrentHashMap<String, SocketChannel> deviceIdAndChannelMap = new ConcurrentHashMap();
+    private final ConcurrentHashMap<String, SocketChannel> deviceIdAndChannelMap = new ConcurrentHashMap();
 
     /**
      * key: deviceId
      * value: token
      */
-    private ConcurrentHashMap<String, String> deviceIdAndTokenMap = new ConcurrentHashMap();
+    private final ConcurrentHashMap<String, String> deviceIdAndTokenMap = new ConcurrentHashMap();
 
     /**
      * key: deviceId
      * value: token
      */
-    private ConcurrentHashMap<String, byte[]> deviceIdAndTokenArrayMap = new ConcurrentHashMap();
+    private final ConcurrentHashMap<String, byte[]> deviceIdAndTokenArrayMap = new ConcurrentHashMap();
 
     /**
      * key : token
      * value : deviceId
      */
-    private ConcurrentHashMap<String, String> tokenAndDeviceIdMap = new ConcurrentHashMap();
+    private final ConcurrentHashMap<String, String> tokenAndDeviceIdMap = new ConcurrentHashMap();
 
     /**
      * get info from device
      * key {lockId}_{database} ,value : map
      */
     @Deprecated
-    private ConcurrentHashMap<String, Map<String, String>> deviceResultMap = new ConcurrentHashMap();
+    private final ConcurrentHashMap<String, Map<String, String>> deviceResultMap = new ConcurrentHashMap();
 
     /**
      * key {lockId} , value :map
      * the information of the device
      */
-    private ConcurrentHashMap<Long, Map<String, String>> deviceInfoMap = new ConcurrentHashMap();
+    private final ConcurrentHashMap<Long, Map<String, String>> deviceInfoMap = new ConcurrentHashMap();
 
 
     private final Map<String, Promise<Object>> PROMISES = new ConcurrentHashMap<>();

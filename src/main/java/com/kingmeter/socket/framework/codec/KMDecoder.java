@@ -58,7 +58,7 @@ public class KMDecoder extends MessageToMessageDecoder<ByteBuf> {
             throw new KingMeterException(ResponseCode.EndCodeErrorType);
         }
 
-        checkByteDetail(in, deviceId, channel, Level.TRACE);
+//        checkByteDetail(in, deviceId, channel, Level.TRACE);
 
         packageRequestBody(ctx, in, out);
     }
@@ -96,8 +96,8 @@ public class KMDecoder extends MessageToMessageDecoder<ByteBuf> {
                 token, tokenArray, resentFlag, dataArray);
 
 
-        log.error(new KingMeterMarker("Socket,TCP_IO,2003"),
-                "{}|{}", deviceId, requestBody.getData());
+//        log.error(new KingMeterMarker("Socket,TCP_IO,2003"),
+//                "{}|{}", deviceId, requestBody.getData());
 
         out.add(requestBody);
     }

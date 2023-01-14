@@ -14,7 +14,7 @@ public class SocketServerConfig {
     @Value("${device.loginFunctionCode}")
     private int loginFunctionCode;
 
-    @Value("${socket.waitSeconds:20}")
+    @Value("${socket.waitSeconds:30}")
     private int waitSeconds;
 
     @Value("${socket.readIdleTimeLimit}")
