@@ -94,14 +94,14 @@ public class ClientHandler extends SimpleChannelInboundHandler<RequestBody> {
         log.info(new KingMeterMarker("Socket,DeviceOffline,1005"),
                 "{}|{}", siteId, channel.id().asLongText());
 
-        //connect new server
-        if (CacheUtil.getInstance().getDeviceResultMap().containsKey(siteId + "_reLogin")) {
-            log.info(new KingMeterMarker("Socket,ReLogin,1007"),
-                    "{}", siteId);
-
-            clientAdapter.bind(host, port, siteId, 1, password);
-            businessWorker.login(ctx, siteId, password);
-        }
+//        //connect new server
+//        if (CacheUtil.getInstance().getDeviceResultMap().containsKey(siteId + "_reLogin")) {
+//            log.info(new KingMeterMarker("Socket,ReLogin,1007"),
+//                    "{}", siteId);
+//
+//            clientAdapter.bind(host, port, siteId, 1, password);
+//            businessWorker.login(ctx, siteId, password);
+//        }
     }
 
     @Override
@@ -111,6 +111,6 @@ public class ClientHandler extends SimpleChannelInboundHandler<RequestBody> {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        cause.printStackTrace();
+        log.error("caught exception "+cause.getMessage());
     }
 }

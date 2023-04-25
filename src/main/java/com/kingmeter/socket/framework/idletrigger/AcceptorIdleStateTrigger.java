@@ -4,6 +4,7 @@ import com.kingmeter.common.KingMeterMarker;
 import com.kingmeter.socket.framework.business.WorkerTemplate;
 import com.kingmeter.socket.framework.util.CacheUtil;
 import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.socket.SocketChannel;
@@ -13,6 +14,7 @@ import io.netty.util.AttributeKey;
 import lombok.extern.slf4j.Slf4j;
 
 
+@ChannelHandler.Sharable
 @Slf4j
 public class AcceptorIdleStateTrigger extends ChannelInboundHandlerAdapter {
 
@@ -33,7 +35,6 @@ public class AcceptorIdleStateTrigger extends ChannelInboundHandlerAdapter {
                 log.warn(new KingMeterMarker("Socket,ChannelIdle,1001"),
                         "{}|{}|{}", deviceId, channel.id().asLongText(),channel.remoteAddress());
                 dealWithIDLE(channel, String.valueOf(deviceId));
-                return;
             }
         } else {
             super.userEventTriggered(ctx, evt);
@@ -46,7 +47,9 @@ public class AcceptorIdleStateTrigger extends ChannelInboundHandlerAdapter {
                 worker.dealWithOffline(channel, deviceId);
             }
         }
-        channel.close();
+        if (channel != null) {
+            channel.close();
+        }
     }
 
 

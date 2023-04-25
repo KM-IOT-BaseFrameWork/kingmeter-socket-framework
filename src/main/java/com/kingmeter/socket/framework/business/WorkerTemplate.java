@@ -72,6 +72,9 @@ public abstract class WorkerTemplate {
         responseBody.setTokenArray(requestBody.getTokenArray());
         requestStrategy.process(requestBody,
                 responseBody, ctx);
+
+        requestBody = null;
+        responseBody = null;
     }
 
 

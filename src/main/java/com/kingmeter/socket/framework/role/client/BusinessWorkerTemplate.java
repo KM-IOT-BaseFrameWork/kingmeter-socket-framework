@@ -29,7 +29,7 @@ public class BusinessWorkerTemplate {
             businessGroup.scheduleAtFixedRate(new CommonJob(tokenArray, channel, siteId),
                     1, internal, TimeUnit.SECONDS);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.info("job executed failed"+e.getMessage());
         }
     }
 

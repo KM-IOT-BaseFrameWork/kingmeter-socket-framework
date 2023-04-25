@@ -104,22 +104,22 @@ public class SocketApplication {
                 // 调用失败
                 throw new KingMeterException(ResponseCode.Device_Not_Response);
             }
-        }catch (InterruptedException e){
+        }catch (Exception e){
             throw new KingMeterException(ResponseCode.Device_Not_Response);
         }
     }
 
-    public Map<String, String> waitForMapResult(String key) {
-        return waitForMapResult(key, config.getWaitSeconds());
-    }
-
-    public Map<String, String> waitForMapResult(String key, int waitSeconds) {
-//        ExecutorService executor = Executors.newSingleThreadExecutor();
-//        SimpleTimeLimiter limiter = SimpleTimeLimiter.create(executor);
-        ResultFromDevice result = new ResultFromDeviceImpl();
-//        ResultFromDevice proxy = limiter.newProxy(result, ResultFromDevice.class, waitSeconds, TimeUnit.SECONDS);
-        return result.getResult(key, waitSeconds);
-    }
+//    public Map<String, String> waitForMapResult(String key) {
+//        return waitForMapResult(key, config.getWaitSeconds());
+//    }
+//
+//    public Map<String, String> waitForMapResult(String key, int waitSeconds) {
+////        ExecutorService executor = Executors.newSingleThreadExecutor();
+////        SimpleTimeLimiter limiter = SimpleTimeLimiter.create(executor);
+//        ResultFromDevice result = new ResultFromDeviceImpl();
+////        ResultFromDevice proxy = limiter.newProxy(result, ResultFromDevice.class, waitSeconds, TimeUnit.SECONDS);
+//        return result.getResult(key, waitSeconds);
+//    }
 
 
     public byte[] getTokenFromCache(String deviceId) {

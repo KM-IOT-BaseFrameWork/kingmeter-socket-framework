@@ -1,8 +1,11 @@
 package com.kingmeter.socket.framework.role.server;
 
 import com.kingmeter.socket.framework.business.WorkerTemplate;
+import com.kingmeter.socket.framework.codec.KMDecoder;
+import com.kingmeter.socket.framework.codec.KMEncoder;
 import com.kingmeter.socket.framework.config.HeaderCode;
 import com.kingmeter.socket.framework.config.SocketServerConfig;
+import com.kingmeter.socket.framework.idletrigger.AcceptorIdleStateTrigger;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.channel.*;
@@ -36,6 +39,9 @@ public class NettyServer {
     @Autowired
     private WorkerTemplate worker;
 
+
+    private final KMEncoder encoder = new KMEncoder();
+
     public void bind() {
         startAsync().syncUninterruptibly();
     }
@@ -51,13 +57,19 @@ public class NettyServer {
             channelClass = EpollServerSocketChannel.class;
         }
 
+        KMDecoder decoder = new KMDecoder(headerCode,socketServerConfig);
+        AcceptorIdleStateTrigger idleStateTrigger= new AcceptorIdleStateTrigger(worker);
+
+        KMServerHandler serverHandler = new KMServerHandler(worker);
+
         ServerBootstrap b = new ServerBootstrap();
         b.group(bossGroup, workerGroup)
                 .channel(channelClass) //非阻塞模式
                 .childHandler(new ServerChannelInitializer(
                         worker, headerCode,
                         socketServerConfig,
-                        handlerEventLoopGroup));
+                        handlerEventLoopGroup,
+                        encoder,decoder,idleStateTrigger,serverHandler));
 
         applyConnectionOptions(b);
 

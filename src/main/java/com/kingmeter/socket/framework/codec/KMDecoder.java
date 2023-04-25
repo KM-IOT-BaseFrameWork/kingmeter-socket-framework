@@ -15,6 +15,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.handler.codec.LineBasedFrameDecoder;
 import io.netty.handler.codec.MessageToMessageDecoder;
 import io.netty.util.AttributeKey;
 import lombok.extern.slf4j.Slf4j;
@@ -47,6 +48,8 @@ public class KMDecoder extends MessageToMessageDecoder<ByteBuf> {
             deviceId = ctx.channel().attr(AttributeKey.<Long>valueOf("DeviceId")).get();
         }
 
+//        checkByteDetail(in, deviceId, channel, Level.TRACE);
+
         if (headerCode.getSTART_CODE_1() != in.getByte(0) &&
                 headerCode.getSTART_CODE_2() != in.getByte(1)) {
             checkByteDetail(in, deviceId, channel, Level.ERROR);
@@ -57,8 +60,6 @@ public class KMDecoder extends MessageToMessageDecoder<ByteBuf> {
             checkByteDetail(in, deviceId, channel, Level.ERROR);
             throw new KingMeterException(ResponseCode.EndCodeErrorType);
         }
-
-//        checkByteDetail(in, deviceId, channel, Level.TRACE);
 
         packageRequestBody(ctx, in, out);
     }
@@ -95,11 +96,17 @@ public class KMDecoder extends MessageToMessageDecoder<ByteBuf> {
                 functionCode,
                 token, tokenArray, resentFlag, dataArray);
 
+        message.readerIndex(validateLength+8);
 
 //        log.error(new KingMeterMarker("Socket,TCP_IO,2003"),
 //                "{}|{}", deviceId, requestBody.getData());
 
         out.add(requestBody);
+
+        tokenArray = null;
+        token = null;
+        deviceId = null;
+        dataArray = null;
     }
 
     private RequestBody parseToRequestBody(String deviceId, int functionCode,
@@ -107,12 +114,13 @@ public class KMDecoder extends MessageToMessageDecoder<ByteBuf> {
                                            byte[] tokenArray,
                                            int resentFlag,
                                            byte[] dataArray) {
-        StringBuffer data = new StringBuffer();
-        for (int i = 0; i < dataArray.length; i++) {
-            data.append((char) dataArray[i]);
-        }
+//        StringBuffer data = new StringBuffer();
+//        for (int i = 0; i < dataArray.length; i++) {
+//            data.append((char) dataArray[i]);
+//        }
+
         return new RequestBody(deviceId, functionCode, token, tokenArray,
-                resentFlag, data.toString());
+                resentFlag, new String(dataArray));
     }
 
     private void checkByteDetail(ByteBuf in, long deviceId, Channel channel, Level logLevel) {
@@ -177,23 +185,23 @@ public class KMDecoder extends MessageToMessageDecoder<ByteBuf> {
                                                        String token, ChannelHandlerContext ctx, ByteBuf message) {
         if (functionCode == config.getLoginFunctionCode()) {
 
-            int first_position = message.readerIndex();
-            int first_limit = first_position + message.readableBytes();
-
-            byte[] first_TmpBf = new byte[first_limit - first_position];
-            message.markReaderIndex();
-            message.readBytes(first_TmpBf, 0, first_limit - first_position);
-
-            log.warn(new KingMeterMarker("Socket,Login,1000"),
-                    "{}|{}|{}|{}|{}", Integer.toHexString(functionCode), ctx.channel().id().asLongText(),
-                    token, ByteUtil.bytesToHexString(first_TmpBf),
-                    ctx.channel().remoteAddress());
-
-            message.resetReaderIndex();
+//            int first_position = message.readerIndex();
+//            int first_limit = first_position + message.readableBytes();
+//
+//            byte[] first_TmpBf = new byte[first_limit - first_position];
+//            message.markReaderIndex();
+//            message.readBytes(first_TmpBf, 0, first_limit - first_position);
+//
+//            log.warn(new KingMeterMarker("Socket,Login,1000"),
+//                    "{}|{}|{}|{}|{}", Integer.toHexString(functionCode), ctx.channel().id().asLongText(),
+//                    token, ByteUtil.bytesToHexString(first_TmpBf),
+//                    ctx.channel().remoteAddress());
+//
+//            message.resetReaderIndex();
 
             return "";
         }
         SocketChannel channel = (SocketChannel) ctx.channel();
-        return CacheUtil.getInstance().validateTokenAndGetDeviceIdExceptLogin(functionCode, token, tokenArray, channel, message);
+        return CacheUtil.getInstance().validateTokenAndGetDeviceIdExceptLogin(headerCode,functionCode, token, tokenArray, channel, message);
     }
 }

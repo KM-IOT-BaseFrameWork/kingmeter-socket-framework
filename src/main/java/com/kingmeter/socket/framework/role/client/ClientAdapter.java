@@ -69,7 +69,7 @@ public class ClientAdapter {
                         businessWorker, businessGroup, this,serverConfig));
 
         for (int i = 0; i < deviceCount; i++) {
-            Long siteId = siteIdStart + i;
+            long siteId = siteIdStart + i;
             try {
                 connect(b, siteId, host, port, password);
                 Thread.sleep(50);
@@ -116,7 +116,7 @@ public class ClientAdapter {
                 }
             });
         } catch (Exception e) {
-            e.printStackTrace();
+            log.info("client create connection failed {}", siteId);
         }
     }
 
@@ -128,7 +128,7 @@ public class ClientAdapter {
             }
             group.shutdownGracefully();
         } catch (Exception e) {
-            e.printStackTrace();
+            log.info("client destroy connection failed {}", e.getMessage());
         }
     }
 

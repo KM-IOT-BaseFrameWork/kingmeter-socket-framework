@@ -6,16 +6,18 @@ import com.kingmeter.socket.framework.dto.ResponseBody;
 import com.kingmeter.utils.ByteUtil;
 import com.kingmeter.utils.CRCUtils;
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToByteEncoder;
 import lombok.extern.slf4j.Slf4j;
 
 
+@ChannelHandler.Sharable
 @Slf4j
-public class Encoder extends MessageToByteEncoder<ResponseBody> {
+public class KMEncoder extends MessageToByteEncoder<ResponseBody> {
 
 
-    public Encoder() {
+    public KMEncoder() {
     }
 
     @Override
@@ -74,6 +76,11 @@ public class Encoder extends MessageToByteEncoder<ResponseBody> {
                 ByteUtil.bytesToHexString(response.getFunctionCodeArray()),
                 ctx.channel().id().asLongText(),
                 ByteUtil.bytesToHexString(result));
+
+        dataArray = null;
+        checkByteArray = null;
+        checkTmp = null;
+        response = null;
         return result;
     }
 

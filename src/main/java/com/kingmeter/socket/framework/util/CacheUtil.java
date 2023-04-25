@@ -3,8 +3,9 @@ package com.kingmeter.socket.framework.util;
 import com.kingmeter.common.KingMeterException;
 import com.kingmeter.common.KingMeterMarker;
 import com.kingmeter.common.ResponseCode;
-import com.kingmeter.socket.framework.codec.Encoder;
+import com.kingmeter.socket.framework.codec.KMEncoder;
 import com.kingmeter.socket.framework.codec.KMDecoder;
+import com.kingmeter.socket.framework.config.HeaderCode;
 import com.kingmeter.socket.framework.idletrigger.AcceptorIdleStateTrigger;
 import com.kingmeter.socket.framework.role.server.KMServerHandler;
 import com.kingmeter.utils.ByteUtil;
@@ -32,6 +33,14 @@ public class CacheUtil {
     private static final Object LOCK = new Object();
 
     private CacheUtil() {
+        channelIdAndChannelMap = new ConcurrentHashMap();
+        channelIdAndDeviceIdMap = new ConcurrentHashMap();
+        deviceIdAndChannelMap = new ConcurrentHashMap();
+        deviceIdAndTokenMap = new ConcurrentHashMap();
+        deviceIdAndTokenArrayMap = new ConcurrentHashMap();
+        tokenAndDeviceIdMap = new ConcurrentHashMap();
+        deviceInfoMap = new ConcurrentHashMap();
+        PROMISES = new ConcurrentHashMap<>();
     }
 
     public static CacheUtil getInstance() {
@@ -41,6 +50,7 @@ public class CacheUtil {
         synchronized (LOCK) {
             if (null == instance) {
                 instance = new CacheUtil();
+
             }
         }
         return instance;
@@ -50,57 +60,58 @@ public class CacheUtil {
      * key: channel id
      * value : channel
      */
-    private final ConcurrentHashMap<String, SocketChannel> channelIdAndChannelMap = new ConcurrentHashMap();
+    private final ConcurrentHashMap<String, SocketChannel> channelIdAndChannelMap;
 
     /**
      * key: channel id
      * value : device id
      */
-    private final ConcurrentHashMap<String, String> channelIdAndDeviceIdMap = new ConcurrentHashMap();
+    private final ConcurrentHashMap<String, String> channelIdAndDeviceIdMap;
 
     /**
      * key: device id
      * value : channel
      */
-    private final ConcurrentHashMap<String, SocketChannel> deviceIdAndChannelMap = new ConcurrentHashMap();
+    private final ConcurrentHashMap<String, SocketChannel> deviceIdAndChannelMap;
 
     /**
      * key: deviceId
      * value: token
      */
-    private final ConcurrentHashMap<String, String> deviceIdAndTokenMap = new ConcurrentHashMap();
+    private final ConcurrentHashMap<String, String> deviceIdAndTokenMap;
 
     /**
      * key: deviceId
      * value: token
      */
-    private final ConcurrentHashMap<String, byte[]> deviceIdAndTokenArrayMap = new ConcurrentHashMap();
+    private final ConcurrentHashMap<String, byte[]> deviceIdAndTokenArrayMap;
 
     /**
      * key : token
      * value : deviceId
      */
-    private final ConcurrentHashMap<String, String> tokenAndDeviceIdMap = new ConcurrentHashMap();
+    private final ConcurrentHashMap<String, String> tokenAndDeviceIdMap;
 
-    /**
-     * get info from device
-     * key {lockId}_{database} ,value : map
-     */
-    @Deprecated
-    private final ConcurrentHashMap<String, Map<String, String>> deviceResultMap = new ConcurrentHashMap();
+//    /**
+//     * get info from device
+//     * key {lockId}_{database} ,value : map
+//     */
+//    @Deprecated
+//    private final ConcurrentHashMap<String, Map<String, String>> deviceResultMap = new ConcurrentHashMap();
 
     /**
      * key {lockId} , value :map
      * the information of the device
      */
-    private final ConcurrentHashMap<Long, Map<String, String>> deviceInfoMap = new ConcurrentHashMap();
+    private final ConcurrentHashMap<Long, Map<String, String>> deviceInfoMap;
 
 
-    private final Map<String, Promise<Object>> PROMISES = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Promise<Object>> PROMISES;
 
 
-    public String validateTokenAndGetDeviceIdExceptLogin(
-            int functionCode, String token, byte[] tokenArray, SocketChannel newChannel, ByteBuf message) {
+    public String validateTokenAndGetDeviceIdExceptLogin(HeaderCode headerCode,
+                                                         int functionCode, String token, byte[] tokenArray,
+                                                         SocketChannel newChannel, ByteBuf message) {
 
         String deviceId = tokenAndDeviceIdMap.getOrDefault(token, "0");
         String newChannelId = newChannel.id().asLongText();
@@ -130,7 +141,7 @@ public class CacheUtil {
              * we should validate the token ,if the token exist in memory , we should update the channelId for this device
              */
             if (tokenAndDeviceIdMap.containsKey(token)) {
-                dealWithChangeIpOrPort(deviceId, newChannel);
+                dealWithChangeIpOrPort(deviceId, functionCode, newChannel, headerCode, message);
                 return deviceId;
             } else {
                 /**
@@ -209,7 +220,9 @@ public class CacheUtil {
 
     }
 
-    public void dealWithChangeIpOrPort(String deviceId, SocketChannel channel) {
+    public void dealWithChangeIpOrPort(String deviceId,
+                                       int functionCode,
+                                       SocketChannel channel, HeaderCode headerCode, ByteBuf message) {
         //1,confirm whether there is already channel in memory
         String newChannelId = channel.id().asLongText();
         String oldChannelId = "";
@@ -218,23 +231,24 @@ public class CacheUtil {
             SocketChannel oldChannel = deviceIdAndChannelMap.get(deviceId);
             oldChannelId = oldChannel.id().asLongText();
             if (!newChannelId.equals(oldChannelId)) {
+
+                int validateLength = ((message.getByte(2) & 0xFF) << 8) + (message.getByte(3) & 0xFF);
+                int dataLength = validateLength - headerCode.getTOKEN_LENGTH() - 3;
+                byte[] dataArray = new byte[dataLength];
+                message.getBytes(headerCode.getTOKEN_LENGTH() + 7, dataArray,
+                        0, dataLength);
+
                 log.warn(new KingMeterMarker("Socket,ReLogin,1004"),
-                        "{}|0|{}|{}|{}|{}", deviceId,
+                        "{}|{}|{}|{}|{}|{}", deviceId, functionCode,
                         newChannelId, oldChannelId,
-                        channel.remoteAddress(), oldChannel.remoteAddress());
-                oldChannel.pipeline().remove(LengthFieldBasedFrameDecoder.class);
-                oldChannel.pipeline().remove(IdleStateHandler.class);
-                oldChannel.pipeline().remove(AcceptorIdleStateTrigger.class);
-                oldChannel.pipeline().remove(KMDecoder.class);
-                oldChannel.pipeline().remove(Encoder.class);
-                oldChannel.pipeline().remove(KMServerHandler.class);
-                oldChannel.pipeline().deregister();
-                oldChannel.deregister();
+                        channel.remoteAddress() + "=>" + oldChannel.remoteAddress(),
+                        new String(dataArray));
+                deregisterCurrentCtx(oldChannel);
 
                 channelIdAndChannelMap.remove(oldChannelId);
                 channelIdAndDeviceIdMap.remove(oldChannelId);
             }
-        }else{
+        } else {
             log.warn(new KingMeterMarker("Socket,ReLogin,1006"),
                     "{}|0|{}|{}|{}", deviceId,
                     newChannelId, oldChannelId, channel.remoteAddress());
@@ -246,21 +260,50 @@ public class CacheUtil {
         channel.attr(AttributeKey.<Long>valueOf("DeviceId")).set(Long.parseLong(deviceId));
     }
 
+    private void deregisterCurrentCtx(SocketChannel channel) {
+        channel.pipeline().remove(LengthFieldBasedFrameDecoder.class);
+        channel.pipeline().remove(IdleStateHandler.class);
+        channel.pipeline().remove(AcceptorIdleStateTrigger.class);
+        channel.pipeline().remove(KMDecoder.class);
+        channel.pipeline().remove(KMEncoder.class);
+        channel.pipeline().remove(KMServerHandler.class);
+        channel.pipeline().fireChannelUnregistered();
+        channel.shutdownOutput();
+        channel.deregister();
+        channel.flush();
+        channel.close();
+    }
+
     //only remove channel info
     public void dealWithChannelInactive(SocketChannel channel) {
-        String channelId = channel.id().asLongText();
-        channelIdAndChannelMap.remove(channelId);
-        String deviceId = channelIdAndDeviceIdMap.getOrDefault(channelId, null);
-        if (deviceId != null) {
-            channelIdAndDeviceIdMap.remove(channelId);
-            Channel channelInMem = deviceIdAndChannelMap.getOrDefault(deviceId, null);
-            if (channelInMem != null) {
-                String channelIdInMem = channelInMem.id().asLongText();
-                if (channelIdInMem.equals(channelId)) {
-                    deviceIdAndChannelMap.remove(deviceId);
+        synchronized (this) {
+            String channelId = channel.id().asLongText();
+            channelIdAndChannelMap.remove(channelId);
+            String deviceId = channelIdAndDeviceIdMap.getOrDefault(channelId, null);
+            if (deviceId != null) {
+                channelIdAndDeviceIdMap.remove(channelId);
+                deviceIdAndChannelMap.remove(deviceId);
+
+//            Channel channelInMem = deviceIdAndChannelMap.getOrDefault(deviceId, null);
+//            if (channelInMem != null) {
+//                String channelIdInMem = channelInMem.id().asLongText();
+//                if (channelIdInMem.equals(channelId)) {
+//                    deviceIdAndChannelMap.remove(deviceId);
+//                }
+//            }
+                String token = deviceIdAndTokenMap.getOrDefault(deviceId, null);
+                if (token != null) {
+                    deviceIdAndTokenMap.remove(deviceId);
+                    tokenAndDeviceIdMap.remove(token);
+                    deviceIdAndTokenArrayMap.remove(deviceId);
                 }
+                deviceInfoMap.remove(Long.parseLong(deviceId));
             }
+            deregisterCurrentCtx(channel);
         }
+        ;
+
+
     }
 
 
@@ -278,7 +321,7 @@ public class CacheUtil {
             tokenAndDeviceIdMap.remove(token);
             deviceIdAndTokenArrayMap.remove(deviceId);
         }
-        deviceResultMap.remove(deviceId);
+//        deviceResultMap.remove(deviceId);
 
         deviceInfoMap.remove(Long.parseLong(deviceId));
         return deviceId;
